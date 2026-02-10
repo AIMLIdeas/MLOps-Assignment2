@@ -1,0 +1,81 @@
+# EKS Cluster Configuration for eksctl
+# This file defines the AWS EKS cluster configuration for the MNIST classifier service
+#
+# To create the cluster, run:
+# eksctl create cluster -f deployment/kubernetes/eks-cluster-config.yaml
+
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: mnist-classifier-cluster
+  region: us-east-1
+  version: "1.28"
+
+# IAM settings
+iam:
+  withOIDC: true
+  serviceAccounts:
+  - metadata:
+      name: mnist-service-account
+      namespace: mlops
+    attachPolicyARNs:
+    - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+    - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+
+# Network configuration
+vpc:
+  cidr: 10.0.0.0/16
+  nat:
+    gateway: Single
+
+# Node groups
+managedNodeGroups:
+  - name: mnist-ng-1
+    instanceType: t3.medium
+    desiredCapacity: 2
+    minSize: 1
+    maxSize: 4
+    volumeSize: 30
+    volumeType: gp3
+    labels:
+      role: worker
+      environment: production
+    tags:
+      Name: mnist-classifier-node
+      Environment: production
+      Project: MLOps-Assignment2
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+        autoScaler: true
+        externalDNS: true
+        certManager: true
+        appMesh: false
+        ebs: true
+        fsx: false
+        efs: true
+        albIngress: true
+        xRay: false
+        cloudWatch: true
+
+# CloudWatch logging
+cloudWatch:
+  clusterLogging:
+    enableTypes:
+      - api
+      - audit
+      - authenticator
+      - controllerManager
+      - scheduler
+
+# Add-ons
+addons:
+  - name: vpc-cni
+    version: latest
+  - name: coredns
+    version: latest
+  - name: kube-proxy
+    version: latest
+  - name: aws-ebs-csi-driver
+    version: latest

@@ -2,10 +2,12 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mnist-deployment
-  namespace: default
+  namespace: mlops
   labels:
     app: mnist-classifier
     version: v1
+  annotations:
+    kubernetes.io/description: "MNIST classifier deployment on AWS EKS"
 spec:
   replicas: 2
   strategy:
@@ -22,9 +24,11 @@ spec:
         app: mnist-classifier
         version: v1
     spec:
+      imagePullSecrets:
+      - name: ghcr-secret
       containers:
       - name: mnist-api
-        image: ghcr.io/YOUR_USERNAME/mnist-classifier:latest
+        image: ghcr.io/aimlideas/mnist-classifier:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
