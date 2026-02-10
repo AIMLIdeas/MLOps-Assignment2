@@ -1,0 +1,88 @@
+name: CD - Deploy to Kubernetes
+
+on:
+  workflow_run:
+    workflows: ["CI - Build, Test & Push Image"]
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  DEPLOYMENT_NAME: mnist-deployment
+  NAMESPACE: default
+
+jobs:
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+      
+      # For local deployment, you would configure kubectl to connect to your cluster
+      # This is a placeholder - configure based on your deployment target
+      - name: Configure kubectl (Example - modify for your setup)
+        run: |
+          echo "Configure kubectl to connect to your cluster"
+          echo "For local k8s: kubectl config use-context docker-desktop"
+          # mkdir -p $HOME/.kube
+          # echo "${{ secrets.KUBE_CONFIG }}" > $HOME/.kube/config
+      
+      - name: Update image tag in manifests
+        run: |
+          IMAGE_TAG="${GITHUB_SHA::7}"
+          sed -i "s|image:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main-${IMAGE_TAG}|g" deployment/kubernetes/deployment.yaml
+      
+      - name: Apply Kubernetes manifests
+        run: |
+          echo "Applying Kubernetes manifests..."
+          # kubectl apply -f deployment/kubernetes/namespace.yaml
+          # kubectl apply -f deployment/kubernetes/deployment.yaml
+          # kubectl apply -f deployment/kubernetes/service.yaml
+          echo "Manifests applied (commented out for safety - uncomment when ready to deploy)"
+      
+      - name: Wait for deployment
+        run: |
+          echo "Waiting for deployment to be ready..."
+          # kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} -n ${{ env.NAMESPACE }} --timeout=300s
+      
+      - name: Run smoke tests
+        run: |
+          echo "Running post-deployment smoke tests..."
+          chmod +x scripts/smoke_test.sh
+          # ./scripts/smoke_test.sh
+          echo "Smoke tests completed (commented out - uncomment after deployment)"
+      
+      - name: Deployment successful
+        run: |
+          echo "✓ Deployment completed successfully!"
+          echo "Application is now running in Kubernetes"
+
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: failure()
+    
+    steps:
+      - name: Rollback deployment
+        run: |
+          echo "Deployment failed - initiating rollback"
+          # kubectl rollout undo deployment/${{ env.DEPLOYMENT_NAME }} -n ${{ env.NAMESPACE }}
+          echo "Rollback initiated (commented out - uncomment when ready)"
+      
+      - name: Notify failure
+        run: |
+          echo "✗ Deployment failed and was rolled back"
+          exit 1

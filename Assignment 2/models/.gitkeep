@@ -1,0 +1,8 @@
+# Placeholder model file
+# Run 'python src/model.py' to train and generate the actual model
+# This file is here to prevent Docker build errors before training
+
+import torch
+
+print("WARNING: This is a placeholder model file.")
+print("Please run 'python src/model.py' to train the actual model.")
