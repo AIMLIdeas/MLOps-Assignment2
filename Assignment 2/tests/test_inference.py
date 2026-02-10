@@ -86,6 +86,12 @@ class TestModelInference:
         # Setup mocks
         mock_exists.return_value = True
         mock_model = MagicMock()
+        
+        # Make .to() and .eval() return the mock itself for method chaining
+        mock_model.to.return_value = mock_model
+        mock_model.eval.return_value = mock_model
+        mock_model.cpu.return_value = mock_model
+        
         mock_cnn.return_value = mock_model
         mock_torch_load.return_value = {}
         
@@ -95,6 +101,7 @@ class TestModelInference:
         
         # Mock preprocessed image
         mock_tensor = torch.randn(1, 1, 28, 28)
+        mock_tensor.to = MagicMock(return_value=mock_tensor)
         mock_preprocess.return_value = mock_tensor
         
         # Create inference handler
@@ -195,6 +202,12 @@ class TestPredictionOutput:
         """Test that prediction is in valid range (0-9)"""
         mock_exists.return_value = True
         mock_model = MagicMock()
+        
+        # Make .to() and .eval() return the mock itself for method chaining
+        mock_model.to.return_value = mock_model
+        mock_model.eval.return_value = mock_model
+        mock_model.cpu.return_value = mock_model
+        
         mock_cnn.return_value = mock_model
         mock_torch_load.return_value = {}
         
@@ -204,6 +217,7 @@ class TestPredictionOutput:
         mock_model.return_value = logits
         
         mock_tensor = torch.randn(1, 1, 28, 28)
+        mock_tensor.to = MagicMock(return_value=mock_tensor)
         mock_preprocess.return_value = mock_tensor
         
         inference = ModelInference(model_path='test_model.pt')
@@ -219,6 +233,12 @@ class TestPredictionOutput:
         """Test that probabilities sum to approximately 1.0"""
         mock_exists.return_value = True
         mock_model = MagicMock()
+        
+        # Make .to() and .eval() return the mock itself for method chaining
+        mock_model.to.return_value = mock_model
+        mock_model.eval.return_value = mock_model
+        mock_model.cpu.return_value = mock_model
+        
         mock_cnn.return_value = mock_model
         mock_torch_load.return_value = {}
         
@@ -226,6 +246,7 @@ class TestPredictionOutput:
         mock_model.return_value = mock_output
         
         mock_tensor = torch.randn(1, 1, 28, 28)
+        mock_tensor.to = MagicMock(return_value=mock_tensor)
         mock_preprocess.return_value = mock_tensor
         
         inference = ModelInference(model_path='test_model.pt')
@@ -242,6 +263,12 @@ class TestPredictionOutput:
         """Test that confidence equals max probability"""
         mock_exists.return_value = True
         mock_model = MagicMock()
+        
+        # Make .to() and .eval() return the mock itself for method chaining
+        mock_model.to.return_value = mock_model
+        mock_model.eval.return_value = mock_model
+        mock_model.cpu.return_value = mock_model
+        
         mock_cnn.return_value = mock_model
         mock_torch_load.return_value = {}
         
@@ -249,6 +276,7 @@ class TestPredictionOutput:
         mock_model.return_value = mock_output
         
         mock_tensor = torch.randn(1, 1, 28, 28)
+        mock_tensor.to = MagicMock(return_value=mock_tensor)
         mock_preprocess.return_value = mock_tensor
         
         inference = ModelInference(model_path='test_model.pt')

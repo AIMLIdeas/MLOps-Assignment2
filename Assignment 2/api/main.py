@@ -9,11 +9,12 @@ import numpy as np
 import time
 import logging
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 import os
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from fastapi.responses import Response
 import json
+from src.inference import ModelInference
 
 # Configure logging
 logging.basicConfig(
@@ -52,7 +53,7 @@ model_inference = None
 
 class PredictionRequest(BaseModel):
     """Request model for prediction endpoint"""
-    image: List[List[float]] = Field(
+    image: Union[List[float], List[List[float]]] = Field(
         ..., 
         description="28x28 image as 2D array or 784-element flattened array"
     )
@@ -96,7 +97,6 @@ async def load_model():
     global model_inference
     
     try:
-        from src.inference import ModelInference
         model_path = os.getenv('MODEL_PATH', 'models/mnist_cnn_model.pt')
         
         logger.info(f"Loading model from {model_path}")

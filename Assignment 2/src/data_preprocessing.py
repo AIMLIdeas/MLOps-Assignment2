@@ -7,6 +7,11 @@ import torch
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 import os
+import ssl
+import urllib.request
+
+# Fix SSL certificate verification issue on macOS
+ssl._create_default_https_context = ssl._create_unverified_context
 
 
 def download_mnist_data(data_dir='data/raw'):

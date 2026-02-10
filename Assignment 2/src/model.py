@@ -13,7 +13,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 from tqdm import tqdm
-from data_preprocessing import download_mnist_data, create_data_loaders
+
+try:
+    from data_preprocessing import download_mnist_data, create_data_loaders
+except ImportError:
+    from src.data_preprocessing import download_mnist_data, create_data_loaders
 
 
 class MNISTBasicCNN(nn.Module):

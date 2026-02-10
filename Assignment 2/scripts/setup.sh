@@ -3,17 +3,35 @@
 
 set -e
 
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# Get the project root (parent of scripts directory)
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
+
+# Change to project root directory
+cd "$PROJECT_ROOT"
+
 echo "========================================="
 echo "MLOps Assignment 2 - Setup Script"
 echo "========================================="
+echo "Working directory: $PROJECT_ROOT"
 echo ""
 
 # Check Python version
 echo "Checking Python version..."
-python_version=$(python3 --version 2>&1 | grep -oP '\d+\.\d+')
+python_version=$(python3 --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
 required_version="3.9"
 
-if (( $(echo "$python_version < $required_version" | bc -l) )); then
+# Convert versions to comparable integers (e.g., 3.9 -> 309, 3.10 -> 310)
+python_ver_major=$(echo $python_version | cut -d. -f1)
+python_ver_minor=$(echo $python_version | cut -d. -f2)
+required_ver_major=$(echo $required_version | cut -d. -f1)
+required_ver_minor=$(echo $required_version | cut -d. -f2)
+
+python_ver_int=$((python_ver_major * 100 + python_ver_minor))
+required_ver_int=$((required_ver_major * 100 + required_ver_minor))
+
+if [ $python_ver_int -lt $required_ver_int ]; then
     echo "Error: Python $required_version or higher is required (found $python_version)"
     exit 1
 fi

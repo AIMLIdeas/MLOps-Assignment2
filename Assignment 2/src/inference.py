@@ -6,6 +6,7 @@ import torch
 import numpy as np
 import os
 from src.data_preprocessing import preprocess_image
+from src.model import MNISTBasicCNN
 
 
 class ModelInference:
@@ -30,9 +31,6 @@ class ModelInference:
         """
         if not os.path.exists(self.model_path):
             raise FileNotFoundError(f"Model file not found at {self.model_path}")
-        
-        # Import model architecture
-        from src.model import MNISTBasicCNN
         
         # Initialize and load model
         self.model = MNISTBasicCNN().to(self.device)
