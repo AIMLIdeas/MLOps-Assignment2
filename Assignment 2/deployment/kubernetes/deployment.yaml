@@ -24,11 +24,9 @@ spec:
         app: mnist-classifier
         version: v1
     spec:
-      imagePullSecrets:
-      - name: ghcr-secret
       containers:
       - name: mnist-api
-        image: ghcr.io/aimlideas/mnist-classifier:latest
+        image: 661011622860.dkr.ecr.us-east-1.amazonaws.com/mnist-classifier:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
