@@ -310,7 +310,7 @@ if __name__ == "__main__":
     print("=" * 60)
     
     # Train model
-    model, accuracy = train_model(epochs=5, batch_size=64, learning_rate=0.001)
+    model, accuracy = train_model(epochs=50, batch_size=64, learning_rate=0.001)
     
     print("\n" + "=" * 60)
     print("Training Complete!")

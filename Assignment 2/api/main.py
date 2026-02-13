@@ -335,8 +335,8 @@ async def model_info():
         
         # Add placeholder metrics (you can replace with actual training metrics)
         model_details.update({
-            "accuracy": "98.5%",
-            "epochs": "10",
+            "accuracy": "99.32%",
+            "epochs": "50",
             "dataset": "MNIST",
             "training_samples": "60,000",
             "test_samples": "10,000"
