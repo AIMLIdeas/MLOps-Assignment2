@@ -1,5 +1,0 @@
-outs:
-- md5: 98281c8fd50ab4df5f2eb50364ea487c
-  size: 4856903
-  hash: md5
-  path: cats_dogs_cnn_model.pt
