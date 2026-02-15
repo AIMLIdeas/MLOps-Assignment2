@@ -1,0 +1,19 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run pytest tests",
+			"type": "shell",
+			"command": "pytest",
+			"args": [
+				"--maxfail=1",
+				"--disable-warnings"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$pytest"
+			],
+			"group": "test"
+		}
+	]
+}
