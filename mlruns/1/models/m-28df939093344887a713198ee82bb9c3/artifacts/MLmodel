@@ -1,0 +1,23 @@
+artifact_path: /Users/nkunutur/Documents/GitHub/MLOps-Assignment2/Assignment 2/mlruns/1/models/m-28df939093344887a713198ee82bb9c3/artifacts
+flavors:
+  python_function:
+    config:
+      device: null
+    data: data
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pytorch
+    pickle_module_name: mlflow.pytorch.pickle_module
+    python_version: 3.13.10
+  pytorch:
+    code: null
+    model_data: data
+    pytorch_version: 2.10.0
+mlflow_version: 3.9.0
+model_id: m-28df939093344887a713198ee82bb9c3
+model_size_bytes: 1695309
+model_uuid: m-28df939093344887a713198ee82bb9c3
+prompts: null
+run_id: 94a7566838254edfb1c6def97e616098
+utc_time_created: '2026-02-11 15:34:29.882733'

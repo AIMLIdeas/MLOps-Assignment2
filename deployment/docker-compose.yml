@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  mnist-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mnist-classifier:latest
+    container_name: mnist-api
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_PATH=/app/models/mnist_cnn_model.pt
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - mnist-network
+
+  # Optional: Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployment/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - mnist-network
+    depends_on:
+      - mnist-api
+
+networks:
+  mnist-network:
+    driver: bridge
+
+volumes:
+  prometheus_data:
