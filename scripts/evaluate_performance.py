@@ -15,10 +15,10 @@ from sklearn.metrics import (
     classification_report
 )
 from src.inference import ModelInference
-from src.data_preprocessing import download_mnist_data, create_data_loaders
+from src.data_preprocessing import load_cat_dogs_data, create_data_loaders
 
 
-def evaluate_model_performance(model_path='models/mnist_cnn_model.pt', 
+def evaluate_model_performance(model_path='models/cat_dogs_cnn_model.pt', 
                                num_samples=1000,
                                output_dir='logs/performance'):
     """
@@ -41,10 +41,9 @@ def evaluate_model_performance(model_path='models/mnist_cnn_model.pt',
     print(f"\nLoading model from {model_path}...")
     model_inference = ModelInference(model_path)
     
-    # Load test data
+    # Load test data (Cat/Dogs)
     print("Loading test dataset...")
-    _, test_dataset = download_mnist_data()
-    
+    _, test_dataset = load_cat_dogs_data()
     # Limit samples if specified
     if num_samples < len(test_dataset):
         indices = np.random.choice(len(test_dataset), num_samples, replace=False)
@@ -52,29 +51,28 @@ def evaluate_model_performance(model_path='models/mnist_cnn_model.pt',
     else:
         test_subset = test_dataset
         num_samples = len(test_dataset)
-    
     print(f"Evaluating on {num_samples} samples...")
-    
     # Make predictions
     predictions = []
     true_labels = []
     inference_times = []
-    
     for i, (image, label) in enumerate(test_subset):
         if (i + 1) % 100 == 0:
             print(f"Progress: {i + 1}/{num_samples}")
-        
-        # Convert tensor to numpy
-        image_np = image.numpy()
-        
+        # Save image to temp file for preprocessing
+        from PIL import Image
+        import tempfile
+        temp_img = (image * 255).byte().permute(1, 2, 0).cpu().numpy()
+        temp_file = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
+        Image.fromarray(temp_img).save(temp_file.name)
         # Time inference
         start_time = datetime.now()
-        result = model_inference.predict(image_np)
+        result = model_inference.predict(temp_file.name)
         inference_time = (datetime.now() - start_time).total_seconds() * 1000
-        
         predictions.append(result['prediction'])
         true_labels.append(label)
         inference_times.append(inference_time)
+        temp_file.close()
     
     # Calculate metrics
     print("\nCalculating metrics...")
@@ -161,7 +159,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='Evaluate model performance')
     parser.add_argument('--model-path', type=str, 
-                       default='models/mnist_cnn_model.pt',
+                       default='models/cat_dogs_cnn_model.pt',
                        help='Path to model file')
     parser.add_argument('--num-samples', type=int, default=1000,
                        help='Number of samples to evaluate')

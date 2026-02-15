@@ -1,7 +1,7 @@
 # Project Summary - MLOps Assignment 2
 
 ## Overview
-Complete end-to-end MLOps pipeline for MNIST digit classification, covering all 5 milestones from model development to production deployment and monitoring.
+Complete end-to-end MLOps pipeline for Cat/Dogs image classification, covering all 5 milestones from model development to production deployment and monitoring.
 
 ## Quick Start
 
@@ -27,8 +27,7 @@ kubectl apply -f deployment/kubernetes/
 
 ## Milestones Completed
 
-### ✅ M1: Model Development & Experiment Tracking
-- CNN model for MNIST (98% accuracy)
+- CNN model for Cat/Dogs (high accuracy)
 - MLflow experiment tracking
 - DVC data versioning
 - Git source control

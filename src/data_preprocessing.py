@@ -1,10 +1,12 @@
 """
 Data Preprocessing Module
-Handles loading and preprocessing MNIST data
+Handles loading and preprocessing Cat/Dogs image data
 """
 import numpy as np
 import torch
 from torchvision import datasets, transforms
+from torchvision.datasets import ImageFolder
+from PIL import Image
 from torch.utils.data import DataLoader
 import os
 import ssl
@@ -14,38 +16,33 @@ import urllib.request
 ssl._create_default_https_context = ssl._create_unverified_context
 
 
-def download_mnist_data(data_dir='data/raw'):
+
+def load_cat_dogs_data(data_dir='data/raw/cat_dogs', img_size=128):
     """
-    Download MNIST dataset
-    
+    Load Cat/Dogs dataset using ImageFolder structure:
+    data_dir/
+        train/
+            cats/
+            dogs/
+        val/
+            cats/
+            dogs/
     Args:
-        data_dir: Directory to save raw data
-        
+        data_dir: Root directory containing train/val folders
+        img_size: Image resize size
     Returns:
-        train_dataset, test_dataset
+        train_dataset, val_dataset
     """
-    os.makedirs(data_dir, exist_ok=True)
-    
+    train_dir = os.path.join(data_dir, 'train')
+    val_dir = os.path.join(data_dir, 'val')
     transform = transforms.Compose([
+        transforms.Resize((img_size, img_size)),
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
-    
-    train_dataset = datasets.MNIST(
-        data_dir, 
-        train=True, 
-        download=True, 
-        transform=transform
-    )
-    
-    test_dataset = datasets.MNIST(
-        data_dir, 
-        train=False, 
-        download=True,
-        transform=transform
-    )
-    
-    return train_dataset, test_dataset
+    train_dataset = ImageFolder(train_dir, transform=transform)
+    val_dataset = ImageFolder(val_dir, transform=transform)
+    return train_dataset, val_dataset
 
 
 def create_data_loaders(train_dataset, test_dataset, batch_size=64):
@@ -75,29 +72,22 @@ def create_data_loaders(train_dataset, test_dataset, batch_size=64):
     return train_loader, test_loader
 
 
-def preprocess_image(image_array):
+def preprocess_image(image_path, img_size=128):
     """
-    Preprocess a single image for inference
-    
+    Preprocess a single image for inference (Cat/Dogs)
     Args:
-        image_array: numpy array of shape (28, 28) or (784,)
-        
+        image_path: Path to image file
+        img_size: Resize size
     Returns:
-        Preprocessed tensor of shape (1, 1, 28, 28)
+        Preprocessed tensor of shape (1, 3, img_size, img_size)
     """
-    # Reshape if flattened
-    if len(image_array.shape) == 1:
-        image_array = image_array.reshape(28, 28)
-    
-    # Normalize using MNIST statistics
-    mean = 0.1307
-    std = 0.3081
-    image_array = (image_array - mean) / std
-    
-    # Convert to tensor and add batch and channel dimensions
-    image_tensor = torch.FloatTensor(image_array)
-    image_tensor = image_tensor.unsqueeze(0).unsqueeze(0)  # (1, 1, 28, 28)
-    
+    image = Image.open(image_path).convert('RGB')
+    transform = transforms.Compose([
+        transforms.Resize((img_size, img_size)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+    image_tensor = transform(image).unsqueeze(0)  # (1, 3, img_size, img_size)
     return image_tensor
 
 

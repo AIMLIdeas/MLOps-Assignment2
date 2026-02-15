@@ -1,83 +1,33 @@
 """
 Unit Tests for Data Preprocessing Module
-Tests preprocessing functions for MNIST data
+Tests preprocessing functions for Cat/Dogs image data
 """
 import pytest
 import numpy as np
 import torch
 from src.data_preprocessing import (
     preprocess_image,
+    load_cat_dogs_data,
+    create_data_loaders,
     flatten_image,
-    normalize_pixel_values,
-    download_mnist_data,
-    create_data_loaders
+    normalize_pixel_values
 )
 
 
 class TestPreprocessImage:
-    """Test image preprocessing function"""
-    
-    def test_preprocess_flattened_image(self):
-        """Test preprocessing of flattened 784-element array"""
-        # Create random flattened image
-        image = np.random.rand(784)
-        
+    """Test image preprocessing function for Cat/Dogs"""
+    def test_preprocess_image_path(self, tmp_path):
+        from PIL import Image
+        import numpy as np
+        # Create a dummy RGB image and save
+        img = Image.fromarray(np.random.randint(0, 255, (128, 128, 3), dtype=np.uint8))
+        img_path = tmp_path / "test.jpg"
+        img.save(img_path)
         # Preprocess
-        result = preprocess_image(image)
-        
+        result = preprocess_image(str(img_path))
         # Check output shape
-        assert result.shape == (1, 1, 28, 28), f"Expected shape (1, 1, 28, 28), got {result.shape}"
-        
-        # Check it's a tensor
-        assert isinstance(result, torch.Tensor), "Result should be a PyTorch tensor"
-    
-    def test_preprocess_2d_image(self):
-        """Test preprocessing of 28x28 2D array"""
-        # Create random 2D image
-        image = np.random.rand(28, 28)
-        
-        # Preprocess
-        result = preprocess_image(image)
-        
-        # Check output shape
-        assert result.shape == (1, 1, 28, 28), f"Expected shape (1, 1, 28, 28), got {result.shape}"
-        
-        # Check it's a tensor
-        assert isinstance(result, torch.Tensor), "Result should be a PyTorch tensor"
-    
-    def test_preprocess_normalization(self):
-        """Test that preprocessing applies normalization"""
-        # Create image with known values
-        image = np.ones((28, 28)) * 0.5
-        
-        # Preprocess
-        result = preprocess_image(image)
-        
-        # Check normalization was applied
-        mean = 0.1307
-        std = 0.3081
-        expected = (0.5 - mean) / std
-        
-        # Allow for small floating point differences
-        assert np.allclose(result.numpy(), expected, atol=1e-5), "Normalization not applied correctly"
-    
-    def test_preprocess_zeros(self):
-        """Test preprocessing of zero image"""
-        image = np.zeros((28, 28))
-        
-        # Should not raise an error
-        result = preprocess_image(image)
-        
-        assert result.shape == (1, 1, 28, 28)
-    
-    def test_preprocess_ones(self):
-        """Test preprocessing of image with all ones"""
-        image = np.ones((28, 28))
-        
-        # Should not raise an error
-        result = preprocess_image(image)
-        
-        assert result.shape == (1, 1, 28, 28)
+        assert result.shape == (1, 3, 128, 128), f"Expected shape (1, 3, 128, 128), got {result.shape}"
+        assert isinstance(result, torch.Tensor)
 
 
 class TestFlattenImage:
@@ -157,53 +107,84 @@ class TestNormalizePixelValues:
 
 
 class TestDataLoading:
-    """Test data loading functions"""
-    
+    """Test data loading functions for Cat/Dogs"""
     @pytest.mark.slow
-    def test_download_mnist_data(self):
-        """Test MNIST data download (may be slow)"""
-        train_dataset, test_dataset = download_mnist_data()
-        
-        assert len(train_dataset) == 60000, "Training set should have 60000 samples"
-        assert len(test_dataset) == 10000, "Test set should have 10000 samples"
-    
+    def test_load_cat_dogs_data(self, tmp_path):
+        # Create dummy directory structure: cat and dog folders with one image each
+        import shutil
+        from PIL import Image
+        import numpy as np
+        data_dir = tmp_path / "cat_dogs"
+        train_dir = data_dir / "train"
+        val_dir = data_dir / "val"
+        (train_dir / "cat").mkdir(parents=True, exist_ok=True)
+        (train_dir / "dog").mkdir(parents=True, exist_ok=True)
+        (val_dir / "cat").mkdir(parents=True, exist_ok=True)
+        (val_dir / "dog").mkdir(parents=True, exist_ok=True)
+        # Create dummy images
+        for split in [train_dir, val_dir]:
+            for cls in ["cat", "dog"]:
+                img = Image.fromarray(np.random.randint(0, 255, (128, 128, 3), dtype=np.uint8))
+                img.save(split / cls / "img1.jpg")
+        # Call the data loader with the dummy directory
+        train_dataset, val_dataset = load_cat_dogs_data(data_dir=str(data_dir))
+        assert hasattr(train_dataset, '__len__')
+        assert hasattr(val_dataset, '__len__')
     @pytest.mark.slow
-    def test_create_data_loaders(self):
-        """Test data loader creation"""
-        train_dataset, test_dataset = download_mnist_data()
-        train_loader, test_loader = create_data_loaders(
-            train_dataset, test_dataset, batch_size=32
-        )
-        
-        # Check batch from train loader
+    def test_create_data_loaders(self, tmp_path):
+        # Create dummy directory structure: cat and dog folders with one image each
+        from PIL import Image
+        import numpy as np
+        data_dir = tmp_path / "cat_dogs"
+        train_dir = data_dir / "train"
+        val_dir = data_dir / "val"
+        (train_dir / "cat").mkdir(parents=True, exist_ok=True)
+        (train_dir / "dog").mkdir(parents=True, exist_ok=True)
+        (val_dir / "cat").mkdir(parents=True, exist_ok=True)
+        (val_dir / "dog").mkdir(parents=True, exist_ok=True)
+        # Create dummy images
+        for split in [train_dir, val_dir]:
+            for cls in ["cat", "dog"]:
+                img = Image.fromarray(np.random.randint(0, 255, (128, 128, 3), dtype=np.uint8))
+                img.save(split / cls / "img1.jpg")
+        # Call the data loader with the dummy directory
+        train_dataset, val_dataset = load_cat_dogs_data(data_dir=str(data_dir))
+        train_loader, val_loader = create_data_loaders(train_dataset, val_dataset, batch_size=2)
         batch = next(iter(train_loader))
         images, labels = batch
-        
-        assert images.shape[0] == 32, "Batch size should be 32"
-        assert images.shape[1:] == (1, 28, 28), "Image shape should be (1, 28, 28)"
-        assert labels.shape[0] == 32, "Should have 32 labels"
+        assert images.shape[1:] == (3, 128, 128)
+        assert images.shape[0] == 2, "Batch size should be 2"
+        assert labels.shape[0] == 2, "Should have 2 labels"
 
 
 class TestEdgeCases:
     """Test edge cases and error handling"""
     
-    def test_negative_values(self):
+    def test_negative_values(self, tmp_path):
         """Test preprocessing with negative values"""
-        image = np.random.randn(28, 28)  # Can have negative values
-        
-        # Should not raise an error
-        result = preprocess_image(image)
-        
-        assert result.shape == (1, 1, 28, 28)
+        from PIL import Image
+        import numpy as np
+        # Create an image with negative values, clip to valid range for saving
+        image = np.random.randint(-100, 100, (128, 128, 3), dtype=np.int32)
+        image = np.clip(image, 0, 255).astype(np.uint8)
+        img = Image.fromarray(image)
+        img_path = tmp_path / "neg_test.jpg"
+        img.save(img_path)
+        result = preprocess_image(str(img_path))
+        assert result.shape == (1, 3, 128, 128)
     
-    def test_large_values(self):
+    def test_large_values(self, tmp_path):
         """Test preprocessing with large values"""
-        image = np.random.rand(28, 28) * 1000
-        
-        # Should not raise an error
-        result = preprocess_image(image)
-        
-        assert result.shape == (1, 1, 28, 28)
+        from PIL import Image
+        import numpy as np
+        # Create an image with large values, clip to valid range for saving
+        image = np.random.rand(128, 128, 3) * 1000
+        image = np.clip(image, 0, 255).astype(np.uint8)
+        img = Image.fromarray(image)
+        img_path = tmp_path / "large_test.jpg"
+        img.save(img_path)
+        result = preprocess_image(str(img_path))
+        assert result.shape == (1, 3, 128, 128)
     
     def test_normalize_small_range(self):
         """Test normalization with very small value range"""

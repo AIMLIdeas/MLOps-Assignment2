@@ -4,7 +4,7 @@ metadata:
   name: mnist-config
   namespace: mlops
 data:
-  MODEL_PATH: "/app/models/mnist_cnn_model.pt"
+  MODEL_PATH: "/app/models/cat_dogs_cnn_model.pt"
   LOG_LEVEL: "INFO"
   MAX_WORKERS: "4"
   ENVIRONMENT: "production"

@@ -16,7 +16,7 @@ chmod +x deployment/ec2/deploy-ec2.sh
 ## What You Get
 
 - ✅ **EC2 instance** with Docker pre-installed
-- ✅ **MNIST classifier** running on port 80
+- ✅ **Cat/Dogs classifier** running on port 80
 - ✅ **Public IP** for immediate access
 - ✅ **SSH key** saved to ~/.ssh/mnist-key.pem
 - ✅ **Security group** with HTTP (80) and SSH (22) access
@@ -31,10 +31,10 @@ PUBLIC_IP="your_instance_ip"
 # Test health
 curl http://$PUBLIC_IP/health
 
-# Test prediction
-curl -X POST http://$PUBLIC_IP/predict \
+# Test prediction (base64-encoded image)
+curl -X POST http://$PUBLIC_IP/predict-image \
   -H "Content-Type: application/json" \
-  -d '{"image": [0.0, ...(784 values)...]}'
+  -d '{"image": "<base64-encoded-cat-or-dog-image>"}'
 ```
 
 ## Management Commands
@@ -42,7 +42,7 @@ curl -X POST http://$PUBLIC_IP/predict \
 ```bash
 # Get instance details
 aws ec2 describe-instances \
-  --filters "Name=tag:Name,Values=mnist-classifier-instance" \
+  --filters "Name=tag:Name,Values=cat-dogs-classifier-instance" \
   --query 'Reservations[*].Instances[*].[InstanceId,PublicIpAddress,State.Name]' \
   --output table
 
@@ -66,17 +66,17 @@ aws ec2 terminate-instances --instance-ids $INSTANCE_ID
 
 ```bash
 aws cloudformation create-stack \
-  --stack-name mnist-classifier \
+  --stack-name cat-dogs-classifier \
   --template-body file://deployment/ec2/cloudformation-template.yaml \
   --parameters ParameterKey=KeyName,ParameterValue=your-existing-key \
   --region us-east-1
 
 # Wait for completion
-aws cloudformation wait stack-create-complete --stack-name mnist-classifier
+aws cloudformation wait stack-create-complete --stack-name cat-dogs-classifier
 
 # Get outputs
 aws cloudformation describe-stacks \
-  --stack-name mnist-classifier \
+  --stack-name cat-dogs-classifier \
   --query 'Stacks[0].Outputs'
 ```
 
@@ -101,15 +101,15 @@ aws cloudformation describe-stacks \
 ### Can't connect to service?
 ```bash
 # Check instance is running
-aws ec2 describe-instances --filters "Name=tag:Name,Values=mnist-classifier-instance"
+aws ec2 describe-instances --filters "Name=tag:Name,Values=cat-dogs-classifier-instance"
 
 # Check security group
-aws ec2 describe-security-groups --filters "Name=group-name,Values=mnist-classifier-sg"
+aws ec2 describe-security-groups --filters "Name=group-name,Values=cat-dogs-classifier-sg"
 
 # SSH and check Docker
 ssh -i ~/.ssh/mnist-key.pem ec2-user@$PUBLIC_IP
 docker ps
-docker logs mnist-classifier
+docker logs cat-dogs-classifier
 ```
 
 ### Update to latest image?

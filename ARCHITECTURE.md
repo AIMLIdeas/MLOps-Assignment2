@@ -33,7 +33,7 @@ This document describes the complete MLOps pipeline architecture.
 
 ```
 ┌─────────────┐
-│ MNIST Data  │
+│ Cat/Dogs Image Data │
 └──────┬──────┘
        │
        ▼

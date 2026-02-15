@@ -1,6 +1,6 @@
 """
 Model Training Module with MLflow Tracking
-Implements a baseline CNN for MNIST classification
+Implements a baseline CNN for Cat/Dogs classification
 """
 import torch
 import torch.nn as nn
@@ -14,53 +14,35 @@ import seaborn as sns
 import os
 from tqdm import tqdm
 
-try:
-    from data_preprocessing import download_mnist_data, create_data_loaders
-except ImportError:
-    from src.data_preprocessing import download_mnist_data, create_data_loaders
 
 
-class MNISTBasicCNN(nn.Module):
+
+
+# CNN for Cat/Dogs binary classification
+class CatDogsCNN(nn.Module):
     """
-    Simple CNN architecture for MNIST classification
+    Simple CNN architecture for Cat/Dogs binary classification
     """
     def __init__(self):
-        super(MNISTBasicCNN, self).__init__()
-        
-        # Convolutional layers
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
+        super(CatDogsCNN, self).__init__()
+        # 3 input channels for RGB images
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        
-        # Pooling layer
         self.pool = nn.MaxPool2d(2, 2)
-        
-        # Fully connected layers
-        self.fc1 = nn.Linear(64 * 7 * 7, 128)
-        self.fc2 = nn.Linear(128, 10)
-        
-        # Dropout for regularization
+        self.fc1 = nn.Linear(64 * 32 * 32, 128)  # for 128x128 input
+        self.fc2 = nn.Linear(128, 2)  # 2 classes: cat, dog
         self.dropout = nn.Dropout(0.25)
-        
-        # Activation
         self.relu = nn.ReLU()
-        
+
     def forward(self, x):
-        # Conv block 1
         x = self.relu(self.conv1(x))
         x = self.pool(x)
-        
-        # Conv block 2
         x = self.relu(self.conv2(x))
         x = self.pool(x)
-        
-        # Flatten
-        x = x.view(-1, 64 * 7 * 7)
-        
-        # Fully connected layers
+        x = x.view(-1, 64 * 32 * 32)
         x = self.relu(self.fc1(x))
         x = self.dropout(x)
         x = self.fc2(x)
-        
         return x
 
 
@@ -192,94 +174,58 @@ def plot_training_curves(train_losses, test_losses, test_accuracies, save_path='
     return save_path
 
 
-def train_model(epochs=5, batch_size=64, learning_rate=0.001, experiment_name="mnist_baseline"):
+
+def train_model(epochs=5, batch_size=64, learning_rate=0.001, experiment_name="cat_dogs_baseline", data_dir='data/raw/cat_dogs'):
     """
-    Complete training pipeline with MLflow tracking
-    
+    Complete training pipeline with MLflow tracking for Cat/Dogs
     Args:
         epochs: Number of training epochs
         batch_size: Batch size
         learning_rate: Learning rate
         experiment_name: MLflow experiment name
+        data_dir: Directory for cat/dogs data
     """
-    # Set MLflow experiment
+    from src.data_preprocessing import load_cat_dogs_data, create_data_loaders
     mlflow.set_experiment(experiment_name)
-    
-    # Start MLflow run
     with mlflow.start_run():
-        # Log parameters
         mlflow.log_param("epochs", epochs)
         mlflow.log_param("batch_size", batch_size)
         mlflow.log_param("learning_rate", learning_rate)
-        mlflow.log_param("model_architecture", "BasicCNN")
-        
-        # Device configuration
+        mlflow.log_param("model_architecture", "CatDogsCNN")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {device}")
         mlflow.log_param("device", str(device))
-        
-        # Load data
-        print("Loading MNIST dataset...")
-        train_dataset, test_dataset = download_mnist_data()
-        train_loader, test_loader = create_data_loaders(
-            train_dataset, test_dataset, batch_size=batch_size
-        )
-        
-        # Initialize model
-        model = MNISTBasicCNN().to(device)
+        print("Loading Cat/Dogs dataset...")
+        train_dataset, val_dataset = load_cat_dogs_data(data_dir)
+        train_loader, val_loader = create_data_loaders(train_dataset, val_dataset, batch_size=batch_size)
+        model = CatDogsCNN().to(device)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-        
-        # Training loop
         train_losses = []
-        test_losses = []
-        test_accuracies = []
-        
+        val_losses = []
+        val_accuracies = []
         print(f"\nTraining for {epochs} epochs...")
         for epoch in range(1, epochs + 1):
             print(f"\nEpoch {epoch}/{epochs}")
-            
-            # Train
             train_loss = train_epoch(model, train_loader, criterion, optimizer, device)
             train_losses.append(train_loss)
-            
-            # Evaluate
-            test_loss, accuracy, preds, labels = evaluate_model(
-                model, test_loader, criterion, device
-            )
-            test_losses.append(test_loss)
-            test_accuracies.append(accuracy)
-            
-            print(f"Train Loss: {train_loss:.4f}, Test Loss: {test_loss:.4f}, Accuracy: {accuracy:.2f}%")
-            
-            # Log metrics to MLflow
+            val_loss, accuracy, preds, labels = evaluate_model(model, val_loader, criterion, device)
+            val_losses.append(val_loss)
+            val_accuracies.append(accuracy)
+            print(f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Accuracy: {accuracy:.2f}%")
             mlflow.log_metric("train_loss", train_loss, step=epoch)
-            mlflow.log_metric("test_loss", test_loss, step=epoch)
-            mlflow.log_metric("test_accuracy", accuracy, step=epoch)
-        
-        # Final evaluation
+            mlflow.log_metric("val_loss", val_loss, step=epoch)
+            mlflow.log_metric("val_accuracy", accuracy, step=epoch)
         print("\nGenerating final metrics and artifacts...")
-        test_loss, accuracy, preds, labels = evaluate_model(
-            model, test_loader, criterion, device
-        )
-        
-        # Log final metrics
+        val_loss, accuracy, preds, labels = evaluate_model(model, val_loader, criterion, device)
         mlflow.log_metric("final_accuracy", accuracy)
-        mlflow.log_metric("final_test_loss", test_loss)
-        
-        # Generate and log confusion matrix
+        mlflow.log_metric("final_val_loss", val_loss)
         cm_path = plot_confusion_matrix(labels, preds, 'confusion_matrix.png')
         mlflow.log_artifact(cm_path)
         os.remove(cm_path)
-        
-        # Generate and log training curves
-        curves_path = plot_training_curves(
-            train_losses, test_losses, test_accuracies, 'training_curves.png'
-        )
+        curves_path = plot_training_curves(train_losses, val_losses, val_accuracies, 'training_curves.png')
         mlflow.log_artifact(curves_path)
         os.remove(curves_path)
-        
-        # Log classification report
         report = classification_report(labels, preds)
         print("\nClassification Report:")
         print(report)
@@ -287,28 +233,21 @@ def train_model(epochs=5, batch_size=64, learning_rate=0.001, experiment_name="m
             f.write(report)
         mlflow.log_artifact("classification_report.txt")
         os.remove("classification_report.txt")
-        
-        # Save model
         os.makedirs("models", exist_ok=True)
-        model_path = "models/mnist_cnn_model.pt"
+        model_path = "models/cat_dogs_cnn_model.pt"
         torch.save(model.state_dict(), model_path)
         print(f"\nModel saved to {model_path}")
-        
-        # Log model to MLflow
         mlflow.pytorch.log_model(model, "model")
         mlflow.log_artifact(model_path)
-        
         print(f"\n✓ Training complete! Final accuracy: {accuracy:.2f}%")
         print(f"✓ MLflow run ID: {mlflow.active_run().info.run_id}")
-        
         return model, accuracy
 
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("MNIST Baseline Model Training with MLflow")
+    print("Cat/Dogs Baseline Model Training with MLflow")
     print("=" * 60)
-    
     # Train model
     model, accuracy = train_model(epochs=50, batch_size=64, learning_rate=0.001)
     

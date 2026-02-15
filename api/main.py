@@ -109,7 +109,7 @@ async def load_model():
     global model_inference
     
     try:
-        model_path = os.getenv('MODEL_PATH', 'models/mnist_cnn_model.pt')
+        model_path = os.getenv('MODEL_PATH', 'models/cat_dogs_cnn_model.pt')
         
         logger.info(f"Loading model from {model_path}")
         model_inference = ModelInference(model_path)
@@ -158,14 +158,30 @@ async def log_requests(request: Request, call_next):
 async def root():
     """Serve the UI dashboard"""
     static_file = os.path.join(os.path.dirname(__file__), "static", "index.html")
-    if os.path.exists(static_file):
-        with open(static_file, "r") as f:
-            return HTMLResponse(content=f.read())
-    
-    # Fallback if static file not found
-    return {
-        "message": "MNIST Digit Classifier API",
-        "version": "1.0.0",
+    # Only serve HTML if explicitly requested (e.g., Accept: text/html)
+    from fastapi import Request
+    from fastapi.responses import JSONResponse
+    import starlette.requests
+    request = None
+    try:
+        # Try to get the request object from context (for FastAPI dependency injection)
+        import inspect
+        frame = inspect.currentframe()
+        while frame:
+            if 'request' in frame.f_locals and isinstance(frame.f_locals['request'], (starlette.requests.Request, Request)):
+                request = frame.f_locals['request']
+                break
+            frame = frame.f_back
+    except Exception:
+        pass
+    if request and 'text/html' in request.headers.get('accept', ''):
+        if os.path.exists(static_file):
+            with open(static_file, "r") as f:
+                return HTMLResponse(content=f.read())
+    # Fallback: always return JSON for API clients
+    return JSONResponse(content={
+        "message": "Cat/Dogs Classifier API",
+        "version": "2.0.0",
         "endpoints": {
             "health": "/health",
             "predict": "/predict (POST)",
@@ -173,7 +189,7 @@ async def root():
             "metrics": "/metrics",
             "docs": "/docs"
         }
-    }
+    })
 
 
 @app.get("/health", response_model=HealthResponse, tags=["General"])
@@ -321,7 +337,7 @@ async def model_info():
                 })
                 
                 # Try to get model file size
-                model_path = os.getenv('MODEL_PATH', 'models/mnist_cnn_model.pt')
+                model_path = os.getenv('MODEL_PATH', 'models/cat_dogs_cnn_model.pt')
                 if os.path.exists(model_path):
                     size_bytes = os.path.getsize(model_path)
                     size_mb = size_bytes / (1024 * 1024)

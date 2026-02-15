@@ -44,7 +44,7 @@ class TestModelInference:
         with pytest.raises(FileNotFoundError):
             ModelInference(model_path='nonexistent_model.pt')
     
-    @patch('src.inference.MNISTBasicCNN')
+    @patch('src.inference.CatDogsCNN')
     @patch('src.inference.torch.load')
     @patch('src.inference.os.path.exists')
     def test_model_loading(self, mock_exists, mock_torch_load, mock_cnn):
@@ -63,7 +63,7 @@ class TestModelInference:
         mock_cnn.assert_called_once()
         mock_torch_load.assert_called_once()
     
-    @patch('src.inference.MNISTBasicCNN')
+    @patch('src.inference.CatDogsCNN')
     @patch('src.inference.torch.load')
     @patch('src.inference.os.path.exists')
     def test_is_loaded(self, mock_exists, mock_torch_load, mock_cnn):
@@ -77,7 +77,7 @@ class TestModelInference:
         
         assert inference.is_loaded() is True
     
-    @patch('src.inference.MNISTBasicCNN')
+    @patch('src.inference.CatDogsCNN')
     @patch('src.inference.torch.load')
     @patch('src.inference.os.path.exists')
     @patch('src.inference.preprocess_image')
@@ -96,11 +96,11 @@ class TestModelInference:
         mock_torch_load.return_value = {}
         
         # Mock prediction output
-        mock_output = torch.randn(1, 10)
+        mock_output = torch.randn(1, 2)
         mock_model.return_value = mock_output
         
         # Mock preprocessed image
-        mock_tensor = torch.randn(1, 1, 28, 28)
+        mock_tensor = torch.randn(1, 3, 128, 128)
         mock_tensor.to = MagicMock(return_value=mock_tensor)
         mock_preprocess.return_value = mock_tensor
         
@@ -108,8 +108,8 @@ class TestModelInference:
         inference = ModelInference(model_path='test_model.pt')
         
         # Make prediction
-        image = np.random.rand(28, 28)
-        result = inference.predict(image)
+        image_path = 'dummy_path.jpg'
+        result = inference.predict(image_path)
         
         # Verify result structure
         assert 'prediction' in result
@@ -118,9 +118,9 @@ class TestModelInference:
         assert isinstance(result['prediction'], int)
         assert isinstance(result['probabilities'], list)
         assert isinstance(result['confidence'], float)
-        assert len(result['probabilities']) == 10
+        assert len(result['probabilities']) == 2
     
-    @patch('src.inference.MNISTBasicCNN')
+    @patch('src.inference.CatDogsCNN')
     @patch('src.inference.torch.load')
     @patch('src.inference.os.path.exists')
     def test_predict_without_loaded_model(self, mock_exists, mock_torch_load, mock_cnn):
@@ -133,7 +133,7 @@ class TestModelInference:
         inference.model = None  # Simulate model not loaded
         
         with pytest.raises(RuntimeError):
-            inference.predict(np.random.rand(28, 28))
+            inference.predict('dummy_path.jpg')
 
 
 class TestPredictionFunctions:
@@ -194,7 +194,7 @@ class TestPredictionFunctions:
 class TestPredictionOutput:
     """Test prediction output validation"""
     
-    @patch('src.inference.MNISTBasicCNN')
+    @patch('src.inference.CatDogsCNN')
     @patch('src.inference.torch.load')
     @patch('src.inference.os.path.exists')
     @patch('src.inference.preprocess_image')
@@ -211,21 +211,18 @@ class TestPredictionOutput:
         mock_cnn.return_value = mock_model
         mock_torch_load.return_value = {}
         
-        # Mock prediction for digit 7
-        logits = torch.zeros(1, 10)
-        logits[0, 7] = 10.0  # High value for class 7
+        # Mock prediction for class 1 (dog)
+        logits = torch.zeros(1, 2)
+        logits[0, 1] = 10.0  # High value for class 1
         mock_model.return_value = logits
-        
-        mock_tensor = torch.randn(1, 1, 28, 28)
+        mock_tensor = torch.randn(1, 3, 128, 128)
         mock_tensor.to = MagicMock(return_value=mock_tensor)
         mock_preprocess.return_value = mock_tensor
-        
         inference = ModelInference(model_path='test_model.pt')
-        result = inference.predict(np.random.rand(28, 28))
-        
-        assert 0 <= result['prediction'] <= 9, "Prediction should be between 0 and 9"
+        result = inference.predict('dummy_path.jpg')
+        assert 0 <= result['prediction'] <= 1, "Prediction should be 0 (cat) or 1 (dog)"
     
-    @patch('src.inference.MNISTBasicCNN')
+    @patch('src.inference.CatDogsCNN')
     @patch('src.inference.torch.load')
     @patch('src.inference.os.path.exists')
     @patch('src.inference.preprocess_image')
@@ -242,20 +239,20 @@ class TestPredictionOutput:
         mock_cnn.return_value = mock_model
         mock_torch_load.return_value = {}
         
-        mock_output = torch.randn(1, 10)
+        mock_output = torch.randn(1, 2)
         mock_model.return_value = mock_output
         
-        mock_tensor = torch.randn(1, 1, 28, 28)
+        mock_tensor = torch.randn(1, 3, 128, 128)
         mock_tensor.to = MagicMock(return_value=mock_tensor)
         mock_preprocess.return_value = mock_tensor
         
         inference = ModelInference(model_path='test_model.pt')
-        result = inference.predict(np.random.rand(28, 28))
+        result = inference.predict('dummy_path.jpg')
         
         prob_sum = sum(result['probabilities'])
         assert np.isclose(prob_sum, 1.0, atol=1e-5), "Probabilities should sum to 1.0"
     
-    @patch('src.inference.MNISTBasicCNN')
+    @patch('src.inference.CatDogsCNN')
     @patch('src.inference.torch.load')
     @patch('src.inference.os.path.exists')
     @patch('src.inference.preprocess_image')
@@ -272,15 +269,15 @@ class TestPredictionOutput:
         mock_cnn.return_value = mock_model
         mock_torch_load.return_value = {}
         
-        mock_output = torch.randn(1, 10)
+        mock_output = torch.randn(1, 2)
         mock_model.return_value = mock_output
         
-        mock_tensor = torch.randn(1, 1, 28, 28)
+        mock_tensor = torch.randn(1, 3, 128, 128)
         mock_tensor.to = MagicMock(return_value=mock_tensor)
         mock_preprocess.return_value = mock_tensor
         
         inference = ModelInference(model_path='test_model.pt')
-        result = inference.predict(np.random.rand(28, 28))
+        result = inference.predict('dummy_path.jpg')
         
         max_prob = max(result['probabilities'])
         assert np.isclose(result['confidence'], max_prob, atol=1e-5), \

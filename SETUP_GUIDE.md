@@ -44,7 +44,7 @@ python src/model.py
 **Expected Output:**
 - Training progress for 5 epochs
 - Final accuracy ~98%
-- Model saved to `models/mnist_cnn_model.pt`
+- Model saved to `models/cat_dogs_cnn_model.pt`
 - MLflow artifacts in `mlruns/`
 
 **View MLflow UI:**
@@ -280,7 +280,7 @@ cat logs/performance/performance_history.jsonl
 ### M1: Model Development & Experiment Tracking
 - [ ] Git repository initialized
 - [ ] DVC initialized and tracking data
-- [ ] Model trained and saved (models/mnist_cnn_model.pt)
+- [ ] Model trained and saved (models/cat_dogs_cnn_model.pt)
 - [ ] MLflow tracking runs visible (mlflow ui)
 - [ ] Model accuracy > 95%
 
@@ -323,7 +323,7 @@ cat logs/performance/performance_history.jsonl
 python src/model.py
 
 # Check model file exists
-ls -lh models/mnist_cnn_model.pt
+ls -lh models/cat_dogs_cnn_model.pt
 ```
 
 ### Import errors

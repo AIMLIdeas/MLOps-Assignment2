@@ -34,7 +34,7 @@ spec:
           protocol: TCP
         env:
         - name: MODEL_PATH
-          value: "/app/models/mnist_cnn_model.pt"
+          value: "/app/models/cat_dogs_cnn_model.pt"
         - name: PYTHONUNBUFFERED
           value: "1"
         resources:

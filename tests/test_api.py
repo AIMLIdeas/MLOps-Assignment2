@@ -61,14 +61,19 @@ class TestRootEndpoint:
     """Test root endpoint"""
     
     def test_root(self, client):
-        """Test root endpoint returns API info"""
+        """Test root endpoint returns API info or dashboard HTML"""
         response = client.get("/")
-        
         assert response.status_code == 200
-        data = response.json()
-        assert 'message' in data
-        assert 'version' in data
-        assert 'endpoints' in data
+        content_type = response.headers.get('content-type', '')
+        if 'application/json' in content_type:
+            data = response.json()
+            assert 'message' in data
+            assert 'version' in data
+            assert 'endpoints' in data
+        elif 'text/html' in content_type:
+            assert '<!DOCTYPE html>' in response.text or '<html' in response.text.lower()
+        else:
+            assert False, f"Unexpected content type: {content_type}"
 
 
 class TestPredictEndpoint:

@@ -1,18 +1,18 @@
 # MLOps Assignment 2 - Complete ML Pipeline
 
-This project demonstrates a complete MLOps pipeline for an MNIST digit classification model, covering model development, containerization, CI/CD, and monitoring.
+This project demonstrates a complete MLOps pipeline for a Cat/Dogs image classification model, covering model development, containerization, CI/CD, and monitoring.
 
 ## Project Structure
 
 ```
 .
 ├── data/                      # Data directory (DVC tracked)
-│   ├── raw/                   # Raw MNIST data
+│   ├── raw/                   # Raw Cat/Dogs image data
 │   └── processed/             # Preprocessed data
 ├── src/                       # Source code
 │   ├── data_preprocessing.py  # Data preprocessing utilities
-│   ├── model.py              # Model training
-│   └── inference.py          # Model inference utilities
+│   ├── model.py               # Model training
+│   └── inference.py           # Model inference utilities
 ├── api/                       # FastAPI service
 │   └── main.py               # REST API endpoints
 ├── tests/                     # Unit tests
@@ -25,7 +25,7 @@ This project demonstrates a complete MLOps pipeline for an MNIST digit classific
 │   └── workflows/
 ├── scripts/                   # Utility scripts
 │   └── smoke_test.sh         # Post-deployment tests
-├── models/                    # Saved models
+├── models/                    # Saved models (cat_dogs_cnn_model.pt)
 ├── Dockerfile                 # Container image
 ├── requirements.txt           # Python dependencies
 ├── .dvc/                      # DVC configuration
@@ -37,7 +37,7 @@ This project demonstrates a complete MLOps pipeline for an MNIST digit classific
 ### M1: Model Development & Experiment Tracking ✓
 - **Git** for source code versioning
 - **DVC** for dataset versioning
-- Baseline CNN model for MNIST classification
+- Baseline CNN model for Cat/Dogs classification
 - **MLflow** for experiment tracking
 
 ### M2: Model Packaging & Containerization ✓

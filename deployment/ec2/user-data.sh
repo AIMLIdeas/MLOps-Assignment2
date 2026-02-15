@@ -36,7 +36,7 @@ services:
     ports:
       - "80:8000"
     environment:
-      - MODEL_PATH=/app/models/mnist_cnn_model.pt
+      - MODEL_PATH=/app/models/cat_dogs_cnn_model.pt
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
     healthcheck:
