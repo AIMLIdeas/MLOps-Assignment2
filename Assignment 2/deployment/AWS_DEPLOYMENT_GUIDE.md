@@ -1,6 +1,6 @@
 # AWS EKS Deployment Guide
 
-This guide explains how to deploy the MNIST Classifier service to AWS EKS using the GitHub Container Registry image.
+This guide explains how to deploy the Cats vs Dogs Classifier service to AWS EKS using the GitHub Container Registry image.
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ All tools are already installed:
 
 ### 3. GitHub Credentials
 - GitHub Personal Access Token (PAT) with `read:packages` scope
-- Access to the repository: ghcr.io/aimlideas/mnist-classifier
+- Access to the repository: ghcr.io/aimlideas/cats-dogs-classifier
 
 ## Configuration Steps
 
@@ -48,7 +48,7 @@ export GITHUB_EMAIL="your_email@example.com"
 ### Step 3: Review Cluster Configuration
 
 Edit `deployment/kubernetes/eks-cluster-config.yaml` if needed:
-- Cluster name: `mnist-classifier-cluster`
+- Cluster name: `cats-dogs-classifier-cluster`
 - Region: `us-east-1`
 - Node type: `t3.medium` (2 vCPUs, 4 GB RAM)
 - Node count: 2-4 (autoscaling)
@@ -89,7 +89,7 @@ eksctl create cluster -f deployment/kubernetes/eks-cluster-config.yaml
 #### 2. Update kubeconfig
 
 ```bash
-aws eks update-kubeconfig --name mnist-classifier-cluster --region us-east-1
+aws eks update-kubeconfig --name cats-dogs-classifier-cluster --region us-east-1
 ```
 
 #### 3. Create Namespace
@@ -136,8 +136,8 @@ kubectl get pods -n mlops
 Expected output:
 ```
 NAME                                READY   STATUS    RESTARTS   AGE
-mnist-deployment-xxxxxxxxx-xxxxx    1/1     Running   0          2m
-mnist-deployment-xxxxxxxxx-xxxxx    1/1     Running   0          2m
+cats-dogs-deployment-xxxxxxxxx-xxxxx    1/1     Running   0          2m
+cats-dogs-deployment-xxxxxxxxx-xxxxx    1/1     Running   0          2m
 ```
 
 ### Check Service Status
@@ -149,7 +149,7 @@ kubectl get svc -n mlops
 Expected output:
 ```
 NAME            TYPE           CLUSTER-IP      EXTERNAL-IP                                                               PORT(S)        AGE
-mnist-service   LoadBalancer   10.100.xxx.xxx  xxxxx.elb.us-east-1.amazonaws.com   80:xxxxx/TCP   3m
+cats-dogs-service   LoadBalancer   10.100.xxx.xxx  xxxxx.elb.us-east-1.amazonaws.com   80:xxxxx/TCP   3m
 ```
 
 ### Check HPA Status
@@ -161,14 +161,14 @@ kubectl get hpa -n mlops
 Expected output:
 ```
 NAME        REFERENCE                     TARGETS   MINPODS   MAXPODS   REPLICAS   AGE
-mnist-hpa   Deployment/mnist-deployment   20%/70%   2         5         2          3m
+cats-dogs-hpa   Deployment/cats-dogs-deployment   20%/70%   2         5         2          3m
 ```
 
 ### Test the Service
 
 Get the LoadBalancer endpoint:
 ```bash
-ENDPOINT=$(kubectl get svc mnist-service -n mlops -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+ENDPOINT=$(kubectl get svc cats-dogs-service -n mlops -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 echo "Service endpoint: http://$ENDPOINT"
 ```
 
@@ -201,7 +201,7 @@ curl -X POST http://$ENDPOINT/predict \
 
 ```bash
 # All pods
-kubectl logs -f -l app=mnist-classifier -n mlops
+kubectl logs -f -l app=cats-dogs-classifier -n mlops
 
 # Specific pod
 kubectl logs -f <pod-name> -n mlops
@@ -228,7 +228,7 @@ kubectl get events -n mlops --sort-by='.lastTimestamp'
 ### Manual Scaling
 
 ```bash
-kubectl scale deployment mnist-deployment --replicas=3 -n mlops
+kubectl scale deployment cats-dogs-deployment --replicas=3 -n mlops
 ```
 
 ### Auto-scaling (HPA)
@@ -266,7 +266,7 @@ kubectl delete -f deployment/kubernetes/ -n mlops
 ### Delete Cluster
 
 ```bash
-eksctl delete cluster --name mnist-classifier-cluster --region us-east-1
+eksctl delete cluster --name cats-dogs-classifier-cluster --region us-east-1
 ```
 
 **Note**: This will delete all resources including the VPC, subnets, and security groups.
@@ -307,7 +307,7 @@ kubectl create secret docker-registry ghcr-secret \
 
 ```bash
 # Check service events
-kubectl describe svc mnist-service -n mlops
+kubectl describe svc cats-dogs-service -n mlops
 
 # Check AWS Load Balancer Controller
 kubectl get pods -n kube-system | grep aws-load-balancer
@@ -335,7 +335,7 @@ kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/late
 │  │  │                                            │  │   │
 │  │  │  ┌──────────────┐  ┌──────────────┐       │  │   │
 │  │  │  │  Pod 1       │  │  Pod 2       │       │  │   │
-│  │  │  │  mnist-api   │  │  mnist-api   │       │  │   │
+│  │  │  │  cats-dogs-api   │  │  cats-dogs-api   │       │  │   │
 │  │  │  │  (ghcr.io)   │  │  (ghcr.io)   │       │  │   │
 │  │  │  └──────────────┘  └──────────────┘       │  │   │
 │  │  │         ▲                  ▲               │  │   │
@@ -363,7 +363,7 @@ kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/late
 ## Support
 
 For issues or questions:
-- Check logs: `kubectl logs -f -l app=mnist-classifier -n mlops`
+- Check logs: `kubectl logs -f -l app=cats-dogs-classifier -n mlops`
 - Review events: `kubectl get events -n mlops`
 - Check AWS EKS documentation: https://docs.aws.amazon.com/eks/
 - Check eksctl documentation: https://eksctl.io/

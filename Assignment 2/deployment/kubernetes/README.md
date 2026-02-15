@@ -1,6 +1,6 @@
 # Kubernetes Deployment Guide
 
-This directory contains Kubernetes manifests for deploying the MNIST classifier API.
+This directory contains Kubernetes manifests for deploying the Cats vs Dogs classifier API.
 
 ## Files
 
@@ -20,10 +20,10 @@ This directory contains Kubernetes manifests for deploying the MNIST classifier 
 
 ### 1. Update Image Reference
 
-Edit `deployment.yaml` and replace `YOUR_USERNAME` with your GitHub username:
+Edit `deployment.yaml` and replace with your ECR repository:
 
 ```yaml
-image: ghcr.io/YOUR_USERNAME/mnist-classifier:latest
+image: 661011622860.dkr.ecr.us-east-1.amazonaws.com/cats-dogs-classifier:latest
 ```
 
 ### 2. Deploy to Kubernetes
@@ -44,16 +44,16 @@ kubectl apply -f deployment/kubernetes/hpa.yaml
 
 ```bash
 # Check pods
-kubectl get pods -l app=mnist-classifier
+kubectl get pods -l app=cats-dogs-classifier
 
 # Check service
-kubectl get svc mnist-service
+kubectl get svc cats-dogs-service
 
 # Check deployment
-kubectl get deployment mnist-deployment
+kubectl get deployment cats-dogs-deployment
 
 # View logs
-kubectl logs -f deployment/mnist-deployment
+kubectl logs -f deployment/cats-dogs-deployment
 ```
 
 ### 4. Access the API
@@ -61,7 +61,7 @@ kubectl logs -f deployment/mnist-deployment
 #### For LoadBalancer (Cloud providers)
 ```bash
 # Get external IP
-kubectl get svc mnist-service
+kubectl get svc cats-dogs-service
 
 # Access API
 curl http://<EXTERNAL-IP>/health
@@ -69,12 +69,12 @@ curl http://<EXTERNAL-IP>/health
 
 #### For Minikube
 ```bash
-minikube service mnist-service
+minikube service cats-dogs-service
 ```
 
 #### For Port Forwarding (Local)
 ```bash
-kubectl port-forward service/mnist-service 8000:80
+kubectl port-forward service/cats-dogs-service 8000:80
 
 # Access API
 curl http://localhost:8000/health
@@ -86,35 +86,37 @@ curl http://localhost:8000/health
 # Health check
 curl http://localhost:8000/health
 
-# Prediction
+# Prediction with file upload
 curl -X POST http://localhost:8000/predict \
+  -F "file=@/path/to/cat_or_dog.jpg"
+
+# Or with base64
+curl -X POST http://localhost:8000/predict-base64 \
   -H "Content-Type: application/json" \
-  -d '{
-    "image": [[0.0, ...]]  # 28x28 or 784 values
-  }'
+  -d '{"image": "<base64_encoded_image>"}'
 ```
 
 ## Monitoring
 
 ```bash
 # Watch pods
-kubectl get pods -l app=mnist-classifier -w
+kubectl get pods -l app=cats-dogs-classifier -w
 
 # Describe deployment
-kubectl describe deployment mnist-deployment
+kubectl describe deployment cats-dogs-deployment
 
 # View events
 kubectl get events --sort-by=.metadata.creationTimestamp
 
 # Check HPA status
-kubectl get hpa mnist-hpa
+kubectl get hpa cats-dogs-hpa
 ```
 
 ## Scaling
 
 ### Manual Scaling
 ```bash
-kubectl scale deployment mnist-deployment --replicas=5
+kubectl scale deployment cats-dogs-deployment --replicas=5
 ```
 
 ### Auto-scaling
@@ -125,23 +127,23 @@ The HPA is configured to scale between 2-5 replicas based on CPU/memory usage.
 ### Rolling Update
 ```bash
 # Update image
-kubectl set image deployment/mnist-deployment \
-  mnist-api=ghcr.io/YOUR_USERNAME/mnist-classifier:v2
+kubectl set image deployment/cats-dogs-deployment \
+  cats-dogs-api=ghcr.io/YOUR_USERNAME/cats-dogs-classifier:v2
 
 # Check rollout status
-kubectl rollout status deployment/mnist-deployment
+kubectl rollout status deployment/cats-dogs-deployment
 
 # View rollout history
-kubectl rollout history deployment/mnist-deployment
+kubectl rollout history deployment/cats-dogs-deployment
 ```
 
 ### Rollback
 ```bash
 # Rollback to previous version
-kubectl rollout undo deployment/mnist-deployment
+kubectl rollout undo deployment/cats-dogs-deployment
 
 # Rollback to specific revision
-kubectl rollout undo deployment/mnist-deployment --to-revision=2
+kubectl rollout undo deployment/cats-dogs-deployment --to-revision=2
 ```
 
 ## Cleanup
@@ -151,10 +153,10 @@ kubectl rollout undo deployment/mnist-deployment --to-revision=2
 kubectl delete -f deployment/kubernetes/
 
 # Or delete individually
-kubectl delete deployment mnist-deployment
-kubectl delete service mnist-service
-kubectl delete hpa mnist-hpa
-kubectl delete configmap mnist-config
+kubectl delete deployment cats-dogs-deployment
+kubectl delete service cats-dogs-service
+kubectl delete hpa cats-dogs-hpa
+kubectl delete configmap cats-dogs-config
 ```
 
 ## Troubleshooting
@@ -174,14 +176,14 @@ kubectl get events --field-selector involvedObject.name=<pod-name>
 ### Service not accessible
 ```bash
 # Check endpoints
-kubectl get endpoints mnist-service
+kubectl get endpoints cats-dogs-service
 
 # Check service
-kubectl describe service mnist-service
+kubectl describe service cats-dogs-service
 
 # Test from within cluster
 kubectl run -it --rm debug --image=curlimages/curl --restart=Never -- \
-  curl http://mnist-service/health
+  curl http://cats-dogs-service/health
 ```
 
 ### Image pull errors

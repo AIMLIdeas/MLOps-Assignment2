@@ -1,5 +1,5 @@
 AWSTemplateFormation: '2010-09-09'
-Description: 'CloudFormation template for MNIST Classifier EC2 deployment'
+Description: 'CloudFormation template for Cats vs Dogs Classifier EC2 deployment'
 
 Parameters:
   InstanceType:
@@ -48,11 +48,11 @@ Mappings:
       AMI: ami-0d71ea30463e0ff8d
 
 Resources:
-  MNISTSecurityGroup:
+  CatsDogsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: mnist-classifier-sg
-      GroupDescription: Security group for MNIST classifier
+      GroupName: cats-dogs-classifier-sg
+      GroupDescription: Security group for Cats vs Dogs classifier
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
@@ -66,16 +66,16 @@ Resources:
           Description: Allow SSH access
       Tags:
         - Key: Name
-          Value: mnist-classifier-sg
+          Value: cats-dogs-classifier-sg
         - Key: Application
-          Value: MNIST-Classifier
+          Value: Cats-Dogs-Classifier
 
-  MNISTInstance:
+  CatsDogsInstance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref InstanceType
       SecurityGroups:
-        - !Ref MNISTSecurityGroup
+        - !Ref CatsDogsSecurityGroup
       KeyName: !Ref KeyName
       ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
       BlockDeviceMappings:
@@ -107,20 +107,20 @@ Resources:
           chmod +x /usr/local/bin/docker-compose
           
           # Create application directory
-          mkdir -p /home/ec2-user/mnist-app
-          cd /home/ec2-user/mnist-app
+          mkdir -p /home/ec2-user/cats-dogs-app
+          cd /home/ec2-user/cats-dogs-app
           
           # Create docker-compose.yml
           cat > docker-compose.yml <<'EOFCOMPOSE'
           version: '3.8'
           services:
-            mnist-api:
-              image: ghcr.io/aimlideas/mnist-classifier:latest
-              container_name: mnist-classifier
+            cats-dogs-api:
+              image: ghcr.io/aimlideas/cats-dogs-classifier:latest
+              container_name: cats-dogs-classifier
               ports:
                 - "80:8000"
               environment:
-                - MODEL_PATH=/app/models/mnist_cnn_model.pt
+                - MODEL_PATH=/app/models/cats_dogs_cnn_model.pt
                 - PYTHONUNBUFFERED=1
               restart: unless-stopped
               healthcheck:
@@ -146,40 +146,40 @@ Resources:
           docker-compose up -d
           
           # Set ownership
-          chown -R ec2-user:ec2-user /home/ec2-user/mnist-app
+          chown -R ec2-user:ec2-user /home/ec2-user/cats-dogs-app
           
           # Send success signal
-          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource MNISTInstance --region ${AWS::Region}
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource CatsDogsInstance --region ${AWS::Region}
       Tags:
         - Key: Name
-          Value: mnist-classifier-instance
+          Value: cats-dogs-classifier-instance
         - Key: Application
-          Value: MNIST-Classifier
+          Value: Cats-Dogs-Classifier
     CreationPolicy:
       ResourceSignal:
         Timeout: PT10M
 
 Outputs:
   InstanceId:
-    Description: Instance ID of the MNIST classifier server
-    Value: !Ref MNISTInstance
+    Description: Instance ID of the Cats vs Dogs classifier server
+    Value: !Ref CatsDogsInstance
     Export:
       Name: !Sub '${AWS::StackName}-InstanceId'
 
   PublicIP:
-    Description: Public IP address of the MNIST classifier server
-    Value: !GetAtt MNISTInstance.PublicIp
+    Description: Public IP address of the Cats vs Dogs classifier server
+    Value: !GetAtt CatsDogsInstance.PublicIp
     Export:
       Name: !Sub '${AWS::StackName}-PublicIP'
 
   ServiceURL:
-    Description: URL of the MNIST classifier service
-    Value: !Sub 'http://${MNISTInstance.PublicIp}'
+    Description: URL of the Cats vs Dogs classifier service
+    Value: !Sub 'http://${CatsDogsInstance.PublicIp}'
     Export:
       Name: !Sub '${AWS::StackName}-ServiceURL'
 
   SSHCommand:
     Description: SSH command to connect to the instance
-    Value: !Sub 'ssh -i ~/.ssh/${KeyName}.pem ec2-user@${MNISTInstance.PublicIp}'
+    Value: !Sub 'ssh -i ~/.ssh/${KeyName}.pem ec2-user@${CatsDogsInstance.PublicIp}'
     Export:
       Name: !Sub '${AWS::StackName}-SSHCommand'

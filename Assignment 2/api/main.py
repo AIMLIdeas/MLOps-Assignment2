@@ -1,8 +1,8 @@
 """
 FastAPI Inference Service with Monitoring
-Provides REST API for MNIST digit classification
+Provides REST API for Cats vs Dogs classification for pet adoption platform
 """
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, File, UploadFile
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
@@ -10,7 +10,7 @@ import numpy as np
 import time
 import logging
 from datetime import datetime
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict
 import os
 import base64
 import io
@@ -29,9 +29,9 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="MNIST Digit Classifier API",
-    description="REST API for MNIST digit classification with monitoring",
-    version="1.0.0"
+    title="Cats vs Dogs Classifier API",
+    description="REST API for Cats vs Dogs classification for pet adoption platform",
+    version="2.0.0"
 )
 
 # Mount static files
@@ -63,34 +63,11 @@ PREDICTION_COUNT = Counter(
 model_inference = None
 
 
-class PredictionRequest(BaseModel):
-    """Request model for prediction endpoint"""
-    image: Union[List[float], List[List[float]]] = Field(
-        ..., 
-        description="28x28 image as 2D array or 784-element flattened array"
-    )
-    
-    @field_validator('image')
-    @classmethod
-    def validate_image(cls, v):
-        """Validate image dimensions"""
-        arr = np.array(v)
-        
-        # Check if flattened (784,) or 2D (28, 28)
-        if arr.shape == (784,):
-            return v
-        elif arr.shape == (28, 28):
-            return v
-        else:
-            raise ValueError(
-                f"Image must be either (28, 28) or (784,) shape, got {arr.shape}"
-            )
-
-
 class PredictionResponse(BaseModel):
     """Response model for prediction endpoint"""
-    prediction: int = Field(..., description="Predicted digit (0-9)")
-    probabilities: List[float] = Field(..., description="Probability for each class")
+    prediction: int = Field(..., description="Predicted class (0=Cat, 1=Dog)")
+    prediction_label: str = Field(..., description="Predicted class label")
+    probabilities: Dict[str, float] = Field(..., description="Probability for each class")
     confidence: float = Field(..., description="Confidence score of prediction")
     inference_time_ms: float = Field(..., description="Inference time in milliseconds")
 
@@ -109,7 +86,7 @@ async def load_model():
     global model_inference
     
     try:
-        model_path = os.getenv('MODEL_PATH', 'models/mnist_cnn_model.pt')
+        model_path = os.getenv('MODEL_PATH', 'models/cats_dogs_cnn_model.pt')
         
         logger.info(f"Loading model from {model_path}")
         model_inference = ModelInference(model_path)
@@ -164,13 +141,16 @@ async def root():
     
     # Fallback if static file not found
     return {
-        "message": "MNIST Digit Classifier API",
-        "version": "1.0.0",
+        "message": "Cats vs Dogs Classifier API for Pet Adoption Platform",
+        "version": "2.0.0",
+        "task": "Binary Image Classification",
         "endpoints": {
             "health": "/health",
-            "predict": "/predict (POST)",
+            "predict (file upload)": "/predict (POST)",
+            "predict (base64)": "/predict-base64 (POST)",
             "model-info": "/model-info",
             "metrics": "/metrics",
+            "stats": "/stats",
             "docs": "/docs"
         }
     }
@@ -188,19 +168,19 @@ async def health_check():
         status="healthy" if model_loaded else "degraded",
         model_loaded=model_loaded,
         timestamp=datetime.utcnow().isoformat(),
-        version="1.0.0"
+        version="2.0.0"
     )
 
 
 @app.post("/predict", response_model=PredictionResponse, tags=["Prediction"])
-async def predict(request: PredictionRequest):
+async def predict(file: UploadFile = File(..., description="Image file (JPEG, PNG)")):
     """
-    Prediction endpoint
+    Prediction endpoint with file upload
     
-    Accepts a 28x28 image and returns the predicted digit with probabilities
+    Accepts an image file and returns the predicted class (Cat or Dog)
     
     Args:
-        request: PredictionRequest containing the image data
+        file: Uploaded image file
         
     Returns:
         PredictionResponse with prediction, probabilities, and confidence
@@ -212,29 +192,30 @@ async def predict(request: PredictionRequest):
         )
     
     try:
-        # Convert input to numpy array
-        image_array = np.array(request.image, dtype=np.float32)
+        # Read image file
+        image_bytes = await file.read()
+        image = Image.open(io.BytesIO(image_bytes))
         
-        # Log prediction request (without sensitive data)
-        logger.info(f"Prediction request received - Image shape: {image_array.shape}")
+        # Log prediction request
+        logger.info(f"Prediction request received - Image format: {image.format}, Size: {image.size}")
         
         # Time inference
         start_time = time.time()
         
         # Make prediction
-        result = model_inference.predict(image_array)
+        result = model_inference.predict(image)
         
         # Calculate inference time
         inference_time_ms = (time.time() - start_time) * 1000
         
         # Record prediction metric
         PREDICTION_COUNT.labels(
-            predicted_class=str(result['prediction'])
+            predicted_class=result['prediction_label']
         ).inc()
         
         # Log prediction result
         logger.info(
-            f"Prediction: {result['prediction']} - "
+            f"Prediction: {result['prediction_label']} ({result['prediction']}) - "
             f"Confidence: {result['confidence']:.4f} - "
             f"Inference time: {inference_time_ms:.2f}ms"
         )
@@ -242,12 +223,14 @@ async def predict(request: PredictionRequest):
         # Log to file for performance tracking
         log_prediction_to_file(
             prediction=result['prediction'],
+            prediction_label=result['prediction_label'],
             confidence=result['confidence'],
             inference_time_ms=inference_time_ms
         )
         
         return PredictionResponse(
             prediction=result['prediction'],
+            prediction_label=result['prediction_label'],
             probabilities=result['probabilities'],
             confidence=result['confidence'],
             inference_time_ms=inference_time_ms
@@ -255,6 +238,78 @@ async def predict(request: PredictionRequest):
         
     except Exception as e:
         logger.error(f"Prediction failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+
+
+class Base64ImageRequest(BaseModel):
+    """Request model for base64 encoded image"""
+    image: str = Field(..., description="Base64 encoded image")
+
+
+@app.post("/predict-base64", response_model=PredictionResponse, tags=["Prediction"])
+async def predict_base64(request: Base64ImageRequest):
+    """
+    Prediction endpoint with base64 encoded image
+    
+    Accepts a base64 encoded image and returns the predicted class
+    
+    Args:
+        request: Base64ImageRequest with base64 encoded image
+        
+    Returns:
+        PredictionResponse with prediction, probabilities, and confidence
+    """
+    if model_inference is None or not model_inference.is_loaded():
+        raise HTTPException(
+            status_code=503, 
+            detail="Model not loaded. Please try again later."
+        )
+    
+    try:
+        # Decode base64 image
+        image_data = base64.b64decode(request.image)
+        image = Image.open(io.BytesIO(image_data))
+        
+        # Log prediction request
+        logger.info(f"Base64 prediction request - Image size: {image.size}")
+        
+        # Time inference
+        start_time = time.time()
+        
+        # Make prediction
+        result = model_inference.predict(image)
+        
+        # Calculate inference time
+        inference_time_ms = (time.time() - start_time) * 1000
+        
+        # Record prediction metric
+        PREDICTION_COUNT.labels(
+            predicted_class=result['prediction_label']
+        ).inc()
+        
+        logger.info(
+            f"Prediction: {result['prediction_label']} - "
+            f"Confidence: {result['confidence']:.4f}"
+        )
+        
+        # Log to file
+        log_prediction_to_file(
+            prediction=result['prediction'],
+            prediction_label=result['prediction_label'],
+            confidence=result['confidence'],
+            inference_time_ms=inference_time_ms
+        )
+        
+        return PredictionResponse(
+            prediction=result['prediction'],
+            prediction_label=result['prediction_label'],
+            probabilities=result['probabilities'],
+            confidence=result['confidence'],
+            inference_time_ms=inference_time_ms
+        )
+        
+    except Exception as e:
+        logger.error(f"Base64 prediction failed: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 
 
@@ -278,13 +333,15 @@ async def get_stats():
             "total_predictions": stats.get("total", 0),
             "average_confidence": stats.get("avg_confidence", 0.0),
             "average_inference_time_ms": stats.get("avg_inference_time", 0.0),
+            "class_distribution": stats.get("distribution", {})
         }
     except Exception as e:
         logger.error(f"Error getting stats: {e}")
         return {
             "total_predictions": 0,
             "average_confidence": 0.0,
-            "average_inference_time_ms": 0.0
+            "average_inference_time_ms": 0.0,
+            "class_distribution": {}
         }
 
 
@@ -292,13 +349,16 @@ async def get_stats():
 async def model_info():
     """Get detailed model information"""
     try:
-        # Get model architecture info if available
+        # Get model architecture info
         model_details = {
             "model_type": "Convolutional Neural Network (CNN)",
-            "version": "1.0.0",
-            "api_version": "1.0.0",
-            "input_size": "28x28 pixels",
-            "num_classes": "10 (digits 0-9)",
+            "version": "2.0.0",
+            "api_version": "2.0.0",
+            "task": "Binary Image Classification",
+            "application": "Pet Adoption Platform - Cat vs Dog Classifier",
+            "input_size": "224x224 RGB",
+            "num_classes": "2 (Cat, Dog)",
+            "class_mapping": {"0": "Cat", "1": "Dog"},
             "framework": "PyTorch",
             "start_time": START_TIME.isoformat(),
             "uptime_seconds": (datetime.utcnow() - START_TIME).total_seconds(),
@@ -321,7 +381,7 @@ async def model_info():
                 })
                 
                 # Try to get model file size
-                model_path = os.getenv('MODEL_PATH', 'models/mnist_cnn_model.pt')
+                model_path = os.getenv('MODEL_PATH', 'models/cats_dogs_cnn_model.pt')
                 if os.path.exists(model_path):
                     size_bytes = os.path.getsize(model_path)
                     size_mb = size_bytes / (1024 * 1024)
@@ -333,13 +393,14 @@ async def model_info():
         else:
             model_details["model_loaded"] = False
         
-        # Add placeholder metrics (you can replace with actual training metrics)
+        # Add dataset and training info
         model_details.update({
-            "accuracy": "99.32%",
-            "epochs": "50",
-            "dataset": "MNIST",
-            "training_samples": "60,000",
-            "test_samples": "10,000"
+            "dataset": "Kaggle Cats and Dogs Dataset",
+            "dataset_source": "bhavikjikadara/dog-and-cat-classification-dataset",
+            "training_samples": "~20,000 (80%)",
+            "validation_samples": "~2,500 (10%)",
+            "test_samples": "~2,500 (10%)",
+            "data_augmentation": "RandomCrop, HorizontalFlip, Rotation, ColorJitter"
         })
         
         return model_details
@@ -349,85 +410,13 @@ async def model_info():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-class ImagePredictionRequest(BaseModel):
-    """Request model for image-based prediction"""
-    image: str = Field(..., description="Base64 encoded image")
-
-
-@app.post("/predict-image", tags=["Prediction"])
-async def predict_image(request: ImagePredictionRequest):
-    """
-    Predict digit from base64 encoded image (e.g., from canvas drawing)
-    
-    Args:
-        request: ImagePredictionRequest with base64 image
-        
-    Returns:
-        Prediction with confidence score
-    """
-    if model_inference is None or not model_inference.is_loaded():
-        raise HTTPException(
-            status_code=503, 
-            detail="Model not loaded. Please try again later."
-        )
-    
-    try:
-        # Decode base64 image
-        image_data = base64.b64decode(request.image)
-        image = Image.open(io.BytesIO(image_data))
-        
-        # Convert to grayscale
-        image = image.convert('L')
-        
-        # Resize to 28x28
-        image = image.resize((28, 28), Image.Resampling.LANCZOS)
-        
-        # Convert to numpy array and normalize
-        image_array = np.array(image, dtype=np.float32)
-        
-        # Invert colors (canvas is black on white, MNIST is white on black)
-        image_array = 255 - image_array
-        
-        # Normalize to [0, 1]
-        image_array = image_array / 255.0
-        
-        # Time inference
-        start_time = time.time()
-        
-        # Make prediction
-        result = model_inference.predict(image_array)
-        
-        # Calculate inference time
-        inference_time_ms = (time.time() - start_time) * 1000
-        
-        # Record prediction metric
-        PREDICTION_COUNT.labels(
-            predicted_class=str(result['prediction'])
-        ).inc()
-        
-        logger.info(
-            f"Image prediction: {result['prediction']} - "
-            f"Confidence: {result['confidence']:.4f}"
-        )
-        
-        return {
-            "prediction": result['prediction'],
-            "confidence": result['confidence'],
-            "probabilities": result['probabilities'],
-            "inference_time_ms": inference_time_ms
-        }
-        
-    except Exception as e:
-        logger.error(f"Image prediction failed: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
-
-
-def log_prediction_to_file(prediction: int, confidence: float, inference_time_ms: float):
+def log_prediction_to_file(prediction: int, prediction_label: str, confidence: float, inference_time_ms: float):
     """
     Log prediction to file for performance tracking
     
     Args:
-        prediction: Predicted class
+        prediction: Predicted class (0 or 1)
+        prediction_label: Predicted class label
         confidence: Confidence score
         inference_time_ms: Inference time in milliseconds
     """
@@ -438,6 +427,7 @@ def log_prediction_to_file(prediction: int, confidence: float, inference_time_ms
         log_entry = {
             "timestamp": datetime.utcnow().isoformat(),
             "prediction": prediction,
+            "prediction_label": prediction_label,
             "confidence": confidence,
             "inference_time_ms": inference_time_ms
         }
@@ -471,12 +461,12 @@ def read_prediction_stats():
         for line in f:
             try:
                 entry = json.loads(line.strip())
-                pred = entry["prediction"]
-                predictions.append(pred)
+                pred_label = entry.get("prediction_label", str(entry["prediction"]))
+                predictions.append(pred_label)
                 confidences.append(entry["confidence"])
                 inference_times.append(entry["inference_time_ms"])
                 
-                distribution[str(pred)] = distribution.get(str(pred), 0) + 1
+                distribution[pred_label] = distribution.get(pred_label, 0) + 1
                 
             except Exception as e:
                 logger.error(f"Failed to parse log entry: {str(e)}")
@@ -487,8 +477,8 @@ def read_prediction_stats():
     
     return {
         "total": len(predictions),
-        "avg_confidence": np.mean(confidences),
-        "avg_inference_time": np.mean(inference_times),
+        "avg_confidence": float(np.mean(confidences)),
+        "avg_inference_time": float(np.mean(inference_times)),
         "distribution": distribution
     }
 
@@ -496,3 +486,4 @@ def read_prediction_stats():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

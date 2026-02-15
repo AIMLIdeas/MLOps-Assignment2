@@ -57,7 +57,7 @@ Assignment 2/
 M1: Model Development & Experiment Tracking ✓
 ✅ Git for code versioning
 ✅ DVC for data versioning
-✅ CNN model (~98% accuracy on MNIST)
+✅ CNN model (~90% accuracy on Cats vs Dogs)
 ✅ MLflow experiment tracking (runs, metrics, artifacts)
 M2: Model Packaging & Containerization ✓
 ✅ FastAPI REST API with /health and /predict endpoints
@@ -109,14 +109,14 @@ curl http://localhost:8000/health
 
 # 9. Deploy to Kubernetes
 kubectl apply -f deployment/kubernetes/
-kubectl port-forward service/mnist-service 8000:80
+kubectl port-forward service/cats-dogs-service 8000:80
 
 # 10. Monitor performance
 python scripts/evaluate_performance.py
 
 
 📊 Key Features
-Model: Simple CNN, ~98% accuracy on MNIST
+Model: Simple CNN, ~90% accuracy on Cats vs Dogs
 API: FastAPI with Pydantic validation
 Tests: Comprehensive unit tests with mocking
 CI/CD: Automated testing, building, deployment

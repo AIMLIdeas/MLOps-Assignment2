@@ -56,16 +56,16 @@ You should see your AWS account details.
 curl http://PUBLIC_IP/health
 
 # SSH to instance
-ssh -i ~/.ssh/mnist-key.pem ec2-user@PUBLIC_IP
+ssh -i ~/.ssh/cats-dogs-key.pem ec2-user@PUBLIC_IP
 
 # View logs
-docker logs mnist-classifier
+docker logs cats-dogs-classifier
 ```
 
 ### For EKS:
 ```bash
 #Get service endpoint
-kubectl get svc mnist-service -n mlops
+kubectl get svc cats-dogs-service -n mlops
 
 # Test the service
 curl http://LOAD_BALANCER_URL/health
@@ -74,7 +74,7 @@ curl http://LOAD_BALANCER_URL/health
 kubectl get pods -n mlops
 
 # View logs
-kubectl logs -f -l app=mnist-classifier -n mlops
+kubectl logs -f -l app=cats-dogs-classifier -n mlops
 ```
 
 ## Troubleshooting
@@ -103,7 +103,7 @@ Only needed if repository is private. Get token from: https://github.com/setting
 - **Terminate** to delete: `aws ec2 terminate-instances --instance-ids INSTANCE_ID`
 
 ### EKS:
-- **Delete cluster**: `eksctl delete cluster --name mnist-classifier-cluster --region us-east-1`
+- **Delete cluster**: `eksctl delete cluster --name cats-dogs-classifier-cluster --region us-east-1`
 
 ## Next Steps
 

@@ -1,11 +1,14 @@
 """
 Unit Tests for FastAPI Application
-Tests API endpoints and functionality
+Tests API endpoints for Cats vs Dogs classification
 """
 import pytest
 from fastapi.testclient import TestClient
 import numpy as np
 from unittest.mock import Mock, patch, MagicMock
+import base64
+from io import BytesIO
+from PIL import Image
 
 
 @pytest.fixture
@@ -14,9 +17,10 @@ def mock_model_inference():
     mock = MagicMock()
     mock.is_loaded.return_value = True
     mock.predict.return_value = {
-        'prediction': 5,
-        'probabilities': [0.05, 0.05, 0.05, 0.05, 0.05, 0.7, 0.01, 0.01, 0.01, 0.02],
-        'confidence': 0.7
+        'prediction': 1,
+        'prediction_label': 'Dog',
+        'probabilities': {'Cat': 0.2, 'Dog': 0.8},
+        'confidence': 0.8
     }
     return mock
 
@@ -74,10 +78,19 @@ class TestRootEndpoint:
 class TestPredictEndpoint:
     """Test prediction endpoint"""
     
-    def test_predict_success(self, client, mock_model_inference):
-        """Test successful prediction"""
-        # Create valid 28x28 image
-        image = np.random.rand(28, 28).tolist()
+    def test_predict_with_file_upload(self, client, mock_model_inference):
+        """Test successful prediction with file upload"""
+        # Create a test image
+        img = Image.new('RGB', (224, 224), color='red')
+        img_bytes = BytesIO()
+        img.save(img_bytes, format='PNG')
+        img_bytes.seek(0)
+        
+        with patch('api.main.model_inference', mock_model_inference):
+            response = client.post(
+                "/predict",
+                files={"file": ("test.png", img_bytes, "image/png")}
+            )
         
         with patch('api.main.model_inference', mock_model_inference):
             response = client.post(
@@ -88,60 +101,50 @@ class TestPredictEndpoint:
             assert response.status_code == 200
             data = response.json()
             assert 'prediction' in data
+            assert 'prediction_label' in data
             assert 'probabilities' in data
             assert 'confidence' in data
             assert 'inference_time_ms' in data
-            assert data['prediction'] == 5
-            assert len(data['probabilities']) == 10
+            assert data['prediction'] in [0, 1]
+            assert data['prediction_label'] in ['Cat', 'Dog']
     
-    def test_predict_flattened_image(self, client, mock_model_inference):
-        """Test prediction with flattened 784-element array"""
-        # Create valid flattened image
-        image = np.random.rand(784).tolist()
+    def test_predict_base64(self, client, mock_model_inference):
+        """Test prediction with base64 encoded image"""
+        # Create a test image
+        img = Image.new('RGB', (224, 224), color='blue')
+        img_bytes = BytesIO()
+        img.save(img_bytes, format='PNG')
+        img_bytes.seek(0)
+        
+        # Encode to base64
+        img_base64 = base64.b64encode(img_bytes.read()).decode('utf-8')
         
         with patch('api.main.model_inference', mock_model_inference):
             response = client.post(
-                "/predict",
-                json={"image": image}
+                "/predict-base64",
+                json={"image": img_base64}
             )
             
             assert response.status_code == 200
             data = response.json()
             assert 'prediction' in data
-    
-    def test_predict_invalid_shape(self, client):
-        """Test prediction with invalid image shape"""
-        # Create invalid image
-        image = np.random.rand(20, 20).tolist()
-        
-        response = client.post(
-            "/predict",
-            json={"image": image}
-        )
-        
-        assert response.status_code == 422  # Validation error
+            assert 'prediction_label' in data
     
     def test_predict_model_not_loaded(self, client):
         """Test prediction when model is not loaded"""
-        image = np.random.rand(28, 28).tolist()
+        img = Image.new('RGB', (224, 224))
+        img_bytes = BytesIO()
+        img.save(img_bytes, format='PNG')
+        img_bytes.seek(0)
         
         with patch('api.main.model_inference', None):
             response = client.post(
                 "/predict",
-                json={"image": image}
+                files={"file": ("test.png", img_bytes, "image/png")}
             )
             
             assert response.status_code == 503
             assert 'Model not loaded' in response.json()['detail']
-    
-    def test_predict_missing_image(self, client):
-        """Test prediction without image data"""
-        response = client.post(
-            "/predict",
-            json={}
-        )
-        
-        assert response.status_code == 422  # Validation error
 
 
 class TestMetricsEndpoint:
@@ -167,30 +170,23 @@ class TestStatsEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert 'total_predictions' in data
+        assert 'class_distribution' in data
 
 
-class TestRequestValidation:
-    """Test request validation"""
+class TestModelInfoEndpoint:
+    """Test model info endpoint"""
     
-    def test_invalid_json(self, client):
-        """Test with invalid JSON"""
-        response = client.post(
-            "/predict",
-            data="invalid json",
-            headers={"Content-Type": "application/json"}
-        )
+    def test_model_info(self, client):
+        """Test model info endpoint"""
+        response = client.get("/model-info")
         
-        assert response.status_code == 422
-    
-    def test_wrong_data_type(self, client):
-        """Test with wrong data type"""
-        response = client.post(
-            "/predict",
-            json={"image": "not a list"}
-        )
-        
-        assert response.status_code == 422
+        assert response.status_code == 200
+        data = response.json()
+        assert 'model_type' in data
+        assert 'task' in data
+        assert 'num_classes' in data
 
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+

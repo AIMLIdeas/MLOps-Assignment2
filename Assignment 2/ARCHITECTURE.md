@@ -32,9 +32,10 @@ This document describes the complete MLOps pipeline architecture.
 ### 1. Data Flow
 
 ```
-┌─────────────┐
-│ MNIST Data  │
-└──────┬──────┘
+┌─────────────────┐
+│ Cats vs Dogs    │
+│ Data            │
+└──────┬──────────┘
        │
        ▼
 ┌─────────────────┐
@@ -115,7 +116,7 @@ This document describes the complete MLOps pipeline architecture.
 │  └────────────────────────┬───────────────────────────────┘    │
 │                           │                                     │
 │  ┌────────────────────────▼───────────────────────────────┐    │
-│  │              Deployment (mnist-deployment)             │    │
+│  │         Deployment (cats-dogs-deployment)              │    │
 │  │                                                        │    │
 │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐           │    │
 │  │  │  Pod 1   │  │  Pod 2   │  │  Pod N   │           │    │
@@ -172,6 +173,7 @@ This document describes the complete MLOps pipeline architecture.
 ### Development (M1)
 - **Language**: Python 3.9+
 - **ML Framework**: PyTorch
+- **Dataset**: Cats vs Dogs (25,000 images)
 - **Experiment Tracking**: MLflow
 - **Data Versioning**: DVC
 - **Version Control**: Git

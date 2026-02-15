@@ -1,6 +1,6 @@
 #!/bin/bash
-# Deploy MNIST Classifier to AWS EC2
-# This script creates an EC2 instance and deploys the MNIST classifier service
+# Deploy Cats vs Dogs Classifier to AWS EC2
+# This script creates an EC2 instance and deploys the Cats vs Dogs classifier service
 
 set -e
 
@@ -10,15 +10,15 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}=== MNIST Classifier AWS EC2 Deployment ===${NC}\n"
+echo -e "${GREEN}=== Cats vs Dogs Classifier AWS EC2 Deployment ===${NC}\n"
 
 # Configuration
 REGION="${AWS_REGION:-us-east-1}"
 INSTANCE_TYPE="${INSTANCE_TYPE:-t3.micro}"
 AMI_ID="${AMI_ID:-}"  # Will auto-detect latest Amazon Linux 2023 if not set
-KEY_NAME="${KEY_NAME:-mnist-key}"
-SECURITY_GROUP_NAME="mnist-classifier-sg"
-INSTANCE_NAME="mnist-classifier-instance"
+KEY_NAME="${KEY_NAME:-cats-dogs-key}"
+SECURITY_GROUP_NAME="cats-dogs-classifier-sg"
+INSTANCE_NAME="cats-dogs-classifier-instance"
 GITHUB_USERNAME="${GITHUB_USERNAME:-aimlideas}"
 GITHUB_PAT="${GITHUB_PAT:-}"
 
@@ -49,7 +49,7 @@ if [ "$SG_ID" == "None" ] || [ -z "$SG_ID" ]; then
     SG_ID=$(aws ec2 create-security-group \
         --region $REGION \
         --group-name $SECURITY_GROUP_NAME \
-        --description "Security group for MNIST classifier" \
+        --description "Security group for Cats vs Dogs classifier" \
         --vpc-id $VPC_ID \
         --query 'GroupId' \
         --output text)
@@ -156,7 +156,7 @@ echo -e "  curl http://$PUBLIC_IP/health"
 echo -e "\n${YELLOW}SSH to instance:${NC}"
 echo -e "  ssh -i ~/.ssh/${KEY_NAME}.pem ec2-user@$PUBLIC_IP"
 echo -e "\n${YELLOW}View logs:${NC}"
-echo -e "  ssh -i ~/.ssh/${KEY_NAME}.pem ec2-user@$PUBLIC_IP 'docker logs mnist-classifier'"
+echo -e "  ssh -i ~/.ssh/${KEY_NAME}.pem ec2-user@$PUBLIC_IP 'docker logs cats-dogs-classifier'"
 echo -e "\n${YELLOW}Stop instance:${NC}"
 echo -e "  aws ec2 stop-instances --region $REGION --instance-ids $INSTANCE_ID"
 echo -e "\n${YELLOW}Terminate instance:${NC}"

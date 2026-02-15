@@ -9,11 +9,11 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'  
 NC='\033[0m'
 
-echo -e "${GREEN}=== Completing MNIST Classifier EKS Deployment ===${NC}\n"
+echo -e "${GREEN}=== Completing Cats vs Dogs Classifier EKS Deployment ===${NC}\n"
 
 # Check node group status
 echo -e "${YELLOW}Checking node group status...${NC}"
-STATUS=$(aws eks describe-nodegroup --cluster-name mnist-classifier-cluster --nodegroup-name mnist-ng-1 --region us-east-1 --query 'nodegroup.status' --output text)
+STATUS=$(aws eks describe-nodegroup --cluster-name cats-dogs-classifier-cluster --nodegroup-name cats-dogs-ng-1 --region us-east-1 --query 'nodegroup.status' --output text)
 echo "Node group status: $STATUS"
 
 if [ "$STATUS" != "ACTIVE" ]; then
@@ -21,7 +21,7 @@ if [ "$STATUS" != "ACTIVE" ]; then
     echo -e "${YELLOW}Waiting for node group to become ACTIVE...${NC}"
     while [ "$STATUS" != "ACTIVE" ]; do
         sleep 30
-        STATUS=$(aws eks describe-nodegroup --cluster-name mnist-classifier-cluster --nodegroup-name mnist-ng-1 --region us-east-1 --query 'nodegroup.status' --output text)
+        STATUS=$(aws eks describe-nodegroup --cluster-name cats-dogs-classifier-cluster --nodegroup-name cats-dogs-ng-1 --region us-east-1 --query 'nodegroup.status' --output text)
         echo "Status: $STATUS"
     done
 fi
@@ -65,7 +65,7 @@ kubectl apply -f deployment/kubernetes/configmap.yaml
 echo -e "${GREEN}✓ ConfigMap deployed${NC}"
 
 # Deploy application
-echo -e "\n${YELLOW}Deploying MNIST Classifier...${NC}"
+echo -e "\n${YELLOW}Deploying Cats vs Dogs Classifier...${NC}"
 kubectl apply -f deployment/kubernetes/deployment.yaml
 echo -e "${GREEN}✓ Deployment created${NC}"
 
@@ -81,24 +81,24 @@ echo -e "${GREEN}✓ HPA deployed${NC}"
 
 # Wait for pods to be ready
 echo -e "\n${YELLOW}Waiting for pods to be ready...${NC}"
-kubectl wait --for=condition=ready pod -l app=mnist-classifier -n $NAMESPACE --timeout=300s
+kubectl wait --for=condition=ready pod -l app=cats-dogs-classifier -n $NAMESPACE --timeout=300s
 
 # Get service endpoint
 echo -e "\n${YELLOW}Getting service endpoint...${NC}"
 echo -e "${GREEN}Waiting for LoadBalancer to be provisioned (this may take a few minutes)...${NC}"
 sleep 60
 
-ENDPOINT=$(kubectl get svc mnist-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+ENDPOINT=$(kubectl get svc cats-dogs-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 if [ -z "$ENDPOINT" ]; then
-    ENDPOINT=$(kubectl get svc mnist-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    ENDPOINT=$(kubectl get svc cats-dogs-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 fi
 
 while [ -z "$ENDPOINT" ]; do
     echo "Waiting for LoadBalancer endpoint..."
     sleep 15
-    ENDPOINT=$(kubectl get svc mnist-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+    ENDPOINT=$(kubectl get svc cats-dogs-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
     if [ -z "$ENDPOINT" ]; then
-        ENDPOINT=$(kubectl get svc mnist-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        ENDPOINT=$(kubectl get svc cats-dogs-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     fi
 done
 
@@ -107,7 +107,7 @@ echo -e "\n${GREEN}Service Endpoint:${NC} http://$ENDPOINT"
 echo -e "\n${YELLOW}Test the service:${NC}"
 echo -e "  curl http://$ENDPOINT/health"
 echo -e "\n${YELLOW}View logs:${NC}"
-echo -e "  kubectl logs -f -l app=mnist-classifier -n $NAMESPACE"
+echo -e "  kubectl logs -f -l app=cats-dogs-classifier -n $NAMESPACE"
 echo -e "\n${YELLOW}View pods:${NC}"
 echo -e "  kubectl get pods -n $NAMESPACE"
 echo -e "\n${YELLOW}View service:${NC}"

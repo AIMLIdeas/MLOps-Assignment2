@@ -43,7 +43,7 @@ To create a GitHub PAT:
 eksctl create cluster -f deployment/kubernetes/eks-cluster-config.yaml
 
 # 2. Update kubeconfig
-aws eks update-kubeconfig --name mnist-classifier-cluster --region us-east-1
+aws eks update-kubeconfig --name cats-dogs-classifier-cluster --region us-east-1
 
 # 3. Create namespace
 kubectl apply -f deployment/kubernetes/namespace.yaml
@@ -63,16 +63,16 @@ kubectl apply -f deployment/kubernetes/service.yaml
 kubectl apply -f deployment/kubernetes/hpa.yaml
 
 # 6. Wait for pods
-kubectl wait --for=condition=ready pod -l app=mnist-classifier -n mlops --timeout=300s
+kubectl wait --for=condition=ready pod -l app=cats-dogs-classifier -n mlops --timeout=300s
 
 # 7. Get service endpoint
-kubectl get svc mnist-service -n mlops
+kubectl get svc cats-dogs-service -n mlops
 ```
 
 ## Step 4: Test Deployment
 ```bash
 # Get endpoint
-ENDPOINT=$(kubectl get svc mnist-service -n mlops -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+ENDPOINT=$(kubectl get svc cats-dogs-service -n mlops -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
 # Test health
 curl http://$ENDPOINT/health
@@ -89,7 +89,7 @@ curl -X POST http://$ENDPOINT/predict \
 kubectl get pods -n mlops
 
 # View logs
-kubectl logs -f -l app=mnist-classifier -n mlops
+kubectl logs -f -l app=cats-dogs-classifier -n mlops
 
 # View HPA status
 kubectl get hpa -n mlops
@@ -104,7 +104,7 @@ kubectl top pods -n mlops
 kubectl delete -f deployment/kubernetes/ -n mlops
 
 # Delete cluster
-eksctl delete cluster --name mnist-classifier-cluster --region us-east-1
+eksctl delete cluster --name cats-dogs-classifier-cluster --region us-east-1
 ```
 
 ## Cost Estimate

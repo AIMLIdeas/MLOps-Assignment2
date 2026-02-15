@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for MNIST Classifier API
+# Multi-stage Dockerfile for Cats vs Dogs Classifier API
 
 # Stage 1: Build stage
 FROM python:3.9-slim as builder
@@ -46,7 +46,7 @@ USER apiuser
 # Environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    MODEL_PATH=/app/models/mnist_cnn_model.pt \
+    MODEL_PATH=/app/models/cats_dogs_cnn_model.pt \
     PORT=8000
 
 # Expose port

@@ -1,13 +1,13 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: mnist-hpa
+  name: cats-dogs-hpa
   namespace: mlops
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: mnist-deployment
+    name: cats-dogs-deployment
   minReplicas: 2
   maxReplicas: 5
   metrics:

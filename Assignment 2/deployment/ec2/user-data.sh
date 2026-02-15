@@ -1,6 +1,6 @@
 #!/bin/bash
 # EC2 User Data Script
-# This script runs on instance launch to set up the MNIST classifier service
+# This script runs on instance launch to set up the Cats vs Dogs classifier service
 
 set -e
 
@@ -22,21 +22,21 @@ chmod +x /usr/local/bin/docker-compose
 
 # Create application directory
 echo "Creating application directory..."
-mkdir -p /home/ec2-user/mnist-app
-cd /home/ec2-user/mnist-app
+mkdir -p /home/ec2-user/cats-dogs-app
+cd /home/ec2-user/cats-dogs-app
 
 # Create docker-compose.yml
 cat > docker-compose.yml <<'EOF'
 version: '3.8'
 
 services:
-  mnist-api:
-    image: ghcr.io/aimlideas/mnist-classifier:latest
-    container_name: mnist-classifier
+  cats-dogs-api:
+    image: ghcr.io/aimlideas/cats-dogs-classifier:latest
+    container_name: cats-dogs-classifier
     ports:
       - "80:8000"
     environment:
-      - MODEL_PATH=/app/models/mnist_cnn_model.pt
+      - MODEL_PATH=/app/models/cats_dogs_cnn_model.pt
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
     healthcheck:
@@ -59,21 +59,21 @@ if [ ! -z "$GITHUB_USERNAME" ] && [ ! -z "$GITHUB_PAT" ]; then
 fi
 
 # Pull and start the application
-echo "Starting MNIST classifier service..."
+echo "Starting Cats vs Dogs classifier service..."
 docker-compose pull
 docker-compose up -d
 
 # Set ownership
-chown -R ec2-user:ec2-user /home/ec2-user/mnist-app
+chown -R ec2-user:ec2-user /home/ec2-user/cats-dogs-app
 
 # Configure automatic updates
-cat > /etc/cron.daily/update-mnist <<'EOF'
+cat > /etc/cron.daily/update-cats-dogs <<'EOF'
 #!/bin/bash
-cd /home/ec2-user/mnist-app
+cd /home/ec2-user/cats-dogs-app
 docker-compose pull
 docker-compose up -d
 EOF
-chmod +x /etc/cron.daily/update-mnist
+chmod +x /etc/cron.daily/update-cats-dogs
 
-echo "MNIST Classifier service deployed successfully!"
+echo "Cats vs Dogs Classifier service deployed successfully!"
 echo "Service is available at http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)"

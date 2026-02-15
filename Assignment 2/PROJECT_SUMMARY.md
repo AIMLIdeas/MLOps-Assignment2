@@ -1,7 +1,7 @@
 # Project Summary - MLOps Assignment 2
 
 ## Overview
-Complete end-to-end MLOps pipeline for MNIST digit classification, covering all 5 milestones from model development to production deployment and monitoring.
+Complete end-to-end MLOps pipeline for Cats vs Dogs image classification, covering all 5 milestones from model development to production deployment and monitoring.
 
 ## Quick Start
 
@@ -28,7 +28,7 @@ kubectl apply -f deployment/kubernetes/
 ## Milestones Completed
 
 ### ✅ M1: Model Development & Experiment Tracking
-- CNN model for MNIST (98% accuracy)
+- CNN model for Cats vs Dogs (~90% accuracy)
 - MLflow experiment tracking
 - DVC data versioning
 - Git source control
@@ -77,7 +77,7 @@ Assignment 2/
 
 ## Key Features
 
-- **Model**: Simple CNN, ~98% accuracy on MNIST
+- **Model**: Simple CNN, ~90% accuracy on Cats vs Dogs
 - **API**: FastAPI with /health and /predict endpoints
 - **Container**: Multi-stage Docker build, non-root user
 - **CI/CD**: Automated testing, building, deployment
@@ -125,7 +125,7 @@ docker-compose up
 ### Kubernetes
 ```bash
 kubectl apply -f deployment/kubernetes/
-kubectl port-forward service/mnist-service 8000:80
+kubectl port-forward service/cats-dogs-service 8000:80
 ```
 
 ## Monitoring
@@ -145,7 +145,7 @@ kubectl port-forward service/mnist-service 8000:80
 
 ## Performance
 
-- **Accuracy**: ~98%
+- **Accuracy**: ~90%
 - **Latency**: 10-20ms inference
 - **Throughput**: Limited by CPU/replicas
 - **Scaling**: 2-5 pods auto-scaling
@@ -178,7 +178,7 @@ For issues:
 
 **Status**: ✅ All 5 milestones completed and tested
 
-**Model**: MNIST CNN with 98% accuracy
+**Model**: Cats vs Dogs CNN with ~90% accuracy
 
 **Deployment**: Docker + Kubernetes ready
 

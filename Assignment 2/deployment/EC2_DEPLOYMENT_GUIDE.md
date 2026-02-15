@@ -1,6 +1,6 @@
 # AWS EC2 Deployment Guide
 
-This guide explains how to deploy the MNIST Classifier service to AWS EC2 using Docker and the GitHub Container Registry image.
+This guide explains how to deploy the Cats vs Dogs Classifier service to AWS EC2 using Docker and the GitHub Container Registry image.
 
 ## Why EC2 vs EKS?
 
@@ -60,7 +60,7 @@ export GITHUB_PAT="your_github_pat_here"
 # Optional: Customize instance configuration
 export INSTANCE_TYPE="t3.micro"  # Default: t3.micro ($8/month)
 export AWS_REGION="us-east-1"     # Default: us-east-1
-export KEY_NAME="mnist-key"       # Default: mnist-key
+export KEY_NAME="cats-dogs-key"       # Default: cats-dogs-key
 ```
 
 #### Step 3: Run Deployment Script
@@ -75,10 +75,10 @@ chmod +x deployment/ec2/deploy-ec2.sh
 The script will:
 1. ✅ Verify AWS credentials
 2. ✅ Create security group (ports 80, 22)
-3. ✅ Create SSH key pair (saved to ~/.ssh/mnist-key.pem)
+3. ✅ Create SSH key pair (saved to ~/.ssh/cats-dogs-key.pem)
 4. ✅ Launch EC2 instance
 5. ✅ Install Docker and Docker Compose
-6. ✅ Pull and start the MNIST classifier container
+6. ✅ Pull and start the Cats vs Dogs classifier container
 7. ✅ Display instance details and service URL
 
 #### Step 4: Test the Service
@@ -107,7 +107,7 @@ curl -X POST http://$PUBLIC_IP/predict \
 
 ```bash
 aws cloudformation create-stack \
-  --stack-name mnist-classifier-stack \
+  --stack-name cats-dogs-classifier-stack \
   --template-body file://deployment/ec2/cloudformation-template.yaml \
   --parameters \
     ParameterKey=KeyName,ParameterValue=your-key-name \
@@ -121,7 +121,7 @@ aws cloudformation create-stack \
 
 ```bash
 aws cloudformation wait stack-create-complete \
-  --stack-name mnist-classifier-stack \
+  --stack-name cats-dogs-classifier-stack \
   --region us-east-1
 ```
 
@@ -129,7 +129,7 @@ aws cloudformation wait stack-create-complete \
 
 ```bash
 aws cloudformation describe-stacks \
-  --stack-name mnist-classifier-stack \
+  --stack-name cats-dogs-classifier-stack \
   --region us-east-1 \
   --query 'Stacks[0].Outputs'
 ```
@@ -144,8 +144,8 @@ VPC_ID=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" --query '
 
 # Create security group
 SG_ID=$(aws ec2 create-security-group \
-  --group-name mnist-classifier-sg \
-  --description "MNIST Classifier Security Group" \
+  --group-name cats-dogs-classifier-sg \
+  --description "Cats vs Dogs Classifier Security Group" \
   --vpc-id $VPC_ID \
   --query 'GroupId' \
   --output text)
@@ -159,11 +159,11 @@ aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port
 
 ```bash
 aws ec2 create-key-pair \
-  --key-name mnist-key \
+  --key-name cats-dogs-key \
   --query 'KeyMaterial' \
-  --output text > ~/.ssh/mnist-key.pem
+  --output text > ~/.ssh/cats-dogs-key.pem
 
-chmod 400 ~/.ssh/mnist-key.pem
+chmod 400 ~/.ssh/cats-dogs-key.pem
 ```
 
 #### Step 3: Launch Instance
@@ -180,10 +180,10 @@ AMI_ID=$(aws ec2 describe-images \
 INSTANCE_ID=$(aws ec2 run-instances \
   --image-id $AMI_ID \
   --instance-type t3.micro \
-  --key-name mnist-key \
+  --key-name cats-dogs-key \
   --security-group-ids $SG_ID \
   --user-data file://deployment/ec2/user-data.sh \
-  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=mnist-classifier-instance}]' \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=cats-dogs-classifier-instance}]' \
   --query 'Instances[0].InstanceId' \
   --output text)
 
@@ -215,7 +215,7 @@ echo "Service URL: http://$PUBLIC_IP"
 
 ```bash
 aws ec2 describe-instances \
-  --filters "Name=tag:Name,Values=mnist-classifier-instance" \
+  --filters "Name=tag:Name,Values=cats-dogs-classifier-instance" \
   --query 'Reservations[*].Instances[*].[InstanceId,State.Name,PublicIpAddress]' \
   --output table
 ```
@@ -223,17 +223,17 @@ aws ec2 describe-instances \
 ### SSH to Instance
 
 ```bash
-ssh -i ~/.ssh/mnist-key.pem ec2-user@$PUBLIC_IP
+ssh -i ~/.ssh/cats-dogs-key.pem ec2-user@$PUBLIC_IP
 ```
 
 ### View Container Logs
 
 ```bash
 # Via SSH
-ssh -i ~/.ssh/mnist-key.pem ec2-user@$PUBLIC_IP 'docker logs mnist-classifier'
+ssh -i ~/.ssh/cats-dogs-key.pem ec2-user@$PUBLIC_IP 'docker logs cats-dogs-classifier'
 
 # Or after SSH login
-docker logs -f mnist-classifier
+docker logs -f cats-dogs-classifier
 docker ps
 docker-compose ps
 ```
@@ -261,19 +261,19 @@ curl -X POST http://$PUBLIC_IP/predict \
 ### View Logs
 
 ```bash
-ssh -i ~/.ssh/mnist-key.pem ec2-user@$PUBLIC_IP 'docker logs -f mnist-classifier'
+ssh -i ~/.ssh/cats-dogs-key.pem ec2-user@$PUBLIC_IP 'docker logs -f cats-dogs-classifier'
 ```
 
 ### Restart Service
 
 ```bash
-ssh -i ~/.ssh/mnist-key.pem ec2-user@$PUBLIC_IP 'cd mnist-app && docker-compose restart'
+ssh -i ~/.ssh/cats-dogs-key.pem ec2-user@$PUBLIC_IP 'cd cats-dogs-app && docker-compose restart'
 ```
 
 ### Update to Latest Image
 
 ```bash
-ssh -i ~/.ssh/mnist-key.pem ec2-user@$PUBLIC_IP 'cd mnist-app && docker-compose pull && docker-compose up -d'
+ssh -i ~/.ssh/cats-dogs-key.pem ec2-user@$PUBLIC_IP 'cd cats-dogs-app && docker-compose pull && docker-compose up -d'
 ```
 
 ### Stop Instance (to save costs)
@@ -303,7 +303,7 @@ aws ec2 terminate-instances --instance-ids $INSTANCE_ID
 ### Delete CloudFormation Stack
 
 ```bash
-aws cloudformation delete-stack --stack-name mnist-classifier-stack
+aws cloudformation delete-stack --stack-name cats-dogs-classifier-stack
 ```
 
 ## Cost Estimation
@@ -356,7 +356,7 @@ aws cloudwatch get-metric-statistics \
 ```bash
 # High CPU alarm
 aws cloudwatch put-metric-alarm \
-  --alarm-name mnist-high-cpu \
+  --alarm-name cats-dogs-high-cpu \
   --alarm-description "Alert when CPU exceeds 80%" \
   --metric-name CPUUtilization \
   --namespace AWS/EC2 \
@@ -387,7 +387,7 @@ For production, use Application Load Balancer with SSL certificate:
 ```bash
 # Create ALB
 aws elbv2 create-load-balancer \
-  --name mnist-alb \
+  --name cats-dogs-alb \
   --subnets subnet-xxx subnet-yyy \
   --security-groups $SG_ID
 
@@ -420,7 +420,7 @@ aws ssm start-session --target $INSTANCE_ID
 Enable automatic security updates:
 
 ```bash
-ssh -i ~/.ssh/mnist-key.pem ec2-user@$PUBLIC_IP
+ssh -i ~/.ssh/cats-dogs-key.pem ec2-user@$PUBLIC_IP
 sudo yum install -y yum-cron
 sudo systemctl enable yum-cron
 sudo systemctl start yum-cron
@@ -438,25 +438,25 @@ aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].
 aws ec2 describe-security-groups --group-ids $SG_ID
 
 # SSH and check Docker
-ssh -i ~/.ssh/mnist-key.pem ec2-user@$PUBLIC_IP
+ssh -i ~/.ssh/cats-dogs-key.pem ec2-user@$PUBLIC_IP
 docker ps
-docker logs mnist-classifier
+docker logs cats-dogs-classifier
 ```
 
 ### Container Not Starting
 
 ```bash
 # Check Docker logs
-docker logs mnist-classifier
+docker logs cats-dogs-classifier
 
 # Check if image pulled successfully
-docker images | grep mnist
+docker images | grep cats-dogs
 
 # Manually pull image
-docker pull ghcr.io/aimlideas/mnist-classifier:latest
+docker pull ghcr.io/aimlideas/cats-dogs-classifier:latest
 
 # Restart container
-cd ~/mnist-app
+cd ~/cats-dogs-app
 docker-compose down
 docker-compose up -d
 ```
@@ -471,14 +471,14 @@ aws ec2 describe-security-groups --group-ids $SG_ID
 aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].State.Name'
 
 # Check user data script completed
-ssh -i ~/.ssh/mnist-key.pem ec2-user@$PUBLIC_IP 'cat /var/log/cloud-init-output.log'
+ssh -i ~/.ssh/cats-dogs-key.pem ec2-user@$PUBLIC_IP 'cat /var/log/cloud-init-output.log'
 ```
 
 ### High Memory Usage
 
 ```bash
 # Connect to instance
-ssh -i ~/.ssh/mnist-key.pem ec2-user@$PUBLIC_IP
+ssh -i ~/.ssh/cats-dogs-key.pem ec2-user@$PUBLIC_IP
 
 # Check memory
 free -h
@@ -508,7 +508,7 @@ docker-compose restart
 │  │  │                                  │     │    │
 │  │  │  ┌────────────────────────────┐  │     │    │
 │  │  │  │  Docker Container          │  │     │    │
-│  │  │  │  mnist-classifier:latest   │  │     │    │
+│  │  │  │  cats-dogs-classifier:latest   │  │     │    │
 │  │  │  │  Port: 8000 → 80          │  │     │    │
 │  │  │  │  Image: ghcr.io           │  │     │    │
 │  │  │  └────────────────────────────┘  │     │    │
@@ -543,7 +543,7 @@ After successful EC2 deployment:
 ## Support
 
 For issues or questions:
-- Check logs: `docker logs mnist-classifier`
+- Check logs: `docker logs cats-dogs-classifier`
 - View CloudWatch: AWS Console → CloudWatch → Logs
 - Check AWS EC2 documentation: https://docs.aws.amazon.com/ec2/
 - Instance troubleshooting: https://aws.amazon.com/premiumsupport/knowledge-center/

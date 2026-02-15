@@ -1,13 +1,13 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mnist-deployment
+  name: cats-dogs-deployment
   namespace: mlops
   labels:
-    app: mnist-classifier
+    app: cats-dogs-classifier
     version: v1
   annotations:
-    kubernetes.io/description: "MNIST classifier deployment on AWS EKS"
+    kubernetes.io/description: "Cats vs Dogs classifier deployment on AWS EKS"
 spec:
   replicas: 2
   strategy:
@@ -17,16 +17,16 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: mnist-classifier
+      app: cats-dogs-classifier
   template:
     metadata:
       labels:
-        app: mnist-classifier
+        app: cats-dogs-classifier
         version: v1
     spec:
       containers:
-      - name: mnist-api
-        image: 661011622860.dkr.ecr.us-east-1.amazonaws.com/mnist-classifier:latest
+      - name: cats-dogs-api
+        image: 661011622860.dkr.ecr.us-east-1.amazonaws.com/cats-dogs-classifier:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
@@ -34,7 +34,7 @@ spec:
           protocol: TCP
         env:
         - name: MODEL_PATH
-          value: "/app/models/mnist_cnn_model.pt"
+          value: "/app/models/cats_dogs_cnn_model.pt"
         - name: PYTHONUNBUFFERED
           value: "1"
         resources:

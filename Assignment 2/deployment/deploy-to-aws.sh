@@ -1,6 +1,6 @@
 #!/bin/bash
-# Deploy MNIST Classifier to AWS EKS
-# This script deploys the MNIST classifier service to AWS EKS using the GitHub Container Registry image
+# Deploy Cats vs Dogs Classifier to AWS EKS
+# This script deploys the Cats vs Dogs classifier service to AWS EKS using the GitHub Container Registry image
 
 set -e  # Exit on error
 
@@ -10,7 +10,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}=== MNIST Classifier AWS EKS Deployment ===${NC}\n"
+echo -e "${GREEN}=== Cats vs Dogs Classifier AWS EKS Deployment ===${NC}\n"
 
 # Check prerequisites
 echo -e "${YELLOW}Checking prerequisites...${NC}"
@@ -24,7 +24,7 @@ aws sts get-caller-identity >/dev/null 2>&1 || { echo -e "${RED}Error: AWS crede
 echo -e "${GREEN}✓ AWS credentials configured${NC}\n"
 
 # Variables
-CLUSTER_NAME="mnist-classifier-cluster"
+CLUSTER_NAME="cats-dogs-classifier-cluster"
 REGION="us-east-1"
 NAMESPACE="mlops"
 GITHUB_USERNAME="${GITHUB_USERNAME:-aimlideas}"
@@ -82,7 +82,7 @@ kubectl apply -f deployment/kubernetes/configmap.yaml
 echo -e "${GREEN}✓ ConfigMap deployed${NC}"
 
 # Deploy application
-echo -e "\n${YELLOW}Deploying MNIST Classifier...${NC}"
+echo -e "\n${YELLOW}Deploying Cats vs Dogs Classifier...${NC}"
 kubectl apply -f deployment/kubernetes/deployment.yaml
 echo -e "${GREEN}✓ Deployment created${NC}"
 
@@ -98,19 +98,19 @@ echo -e "${GREEN}✓ HPA deployed${NC}"
 
 # Wait for pods to be ready
 echo -e "\n${YELLOW}Waiting for pods to be ready...${NC}"
-kubectl wait --for=condition=ready pod -l app=mnist-classifier -n $NAMESPACE --timeout=300s
+kubectl wait --for=condition=ready pod -l app=cats-dogs-classifier -n $NAMESPACE --timeout=300s
 
 # Get service endpoint
 echo -e "\n${YELLOW}Getting service endpoint...${NC}"
 echo -e "${GREEN}Waiting for LoadBalancer to be provisioned (this may take a few minutes)...${NC}"
-kubectl get svc mnist-service -n $NAMESPACE -w &
+kubectl get svc cats-dogs-service -n $NAMESPACE -w &
 WATCH_PID=$!
 sleep 60
 kill $WATCH_PID 2>/dev/null || true
 
-ENDPOINT=$(kubectl get svc mnist-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+ENDPOINT=$(kubectl get svc cats-dogs-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 if [ -z "$ENDPOINT" ]; then
-    ENDPOINT=$(kubectl get svc mnist-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    ENDPOINT=$(kubectl get svc cats-dogs-service -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 fi
 
 echo -e "\n${GREEN}=== Deployment Complete ===${NC}"
@@ -118,7 +118,7 @@ echo -e "\n${GREEN}Service Endpoint:${NC} http://$ENDPOINT"
 echo -e "\n${YELLOW}Test the service:${NC}"
 echo -e "  curl http://$ENDPOINT/health"
 echo -e "\n${YELLOW}View logs:${NC}"
-echo -e "  kubectl logs -f -l app=mnist-classifier -n $NAMESPACE"
+echo -e "  kubectl logs -f -l app=cats-dogs-classifier -n $NAMESPACE"
 echo -e "\n${YELLOW}View pods:${NC}"
 echo -e "  kubectl get pods -n $NAMESPACE"
 echo -e "\n${YELLOW}View service:${NC}"

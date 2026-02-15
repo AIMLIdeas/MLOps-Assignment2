@@ -13,18 +13,18 @@ This checklist maps the project deliverables to the assignment requirements.
 - [x] **DVC for dataset versioning**
   - Location: `.dvc/` directory, `data/raw.dvc`
   - Command to track data: `dvc add data/raw`
-  - MNIST dataset versioned with DVC
+  - Cats vs Dogs dataset versioned with DVC
   - `.dvcignore` configured
 
 ### 2. Model Building
 - [x] **Baseline model implemented**
   - Location: `src/model.py`
-  - Architecture: Simple CNN (MNISTBasicCNN)
+  - Architecture: Simple CNN (CatsDogsCNN)
   - Alternative: Can use logistic regression on flattened pixels
   - Training script with data loading and training loop
 
 - [x] **Model saved in standard format**
-  - Location: `models/mnist_cnn_model.pt`
+  - Location: `models/cats_dogs_cnn_model.pt`
   - Format: PyTorch `.pt` format
   - Can also save as `.pkl` or `.h5`
 
@@ -77,8 +77,8 @@ This checklist maps the project deliverables to the assignment requirements.
   - Health check configured
 
 - [x] **Build and run locally**
-  - Build: `docker build -t mnist-classifier:latest .`
-  - Run: `docker run -p 8000:8000 mnist-classifier:latest`
+  - Build: `docker build -t cats-dogs-classifier:latest .`
+  - Run: `docker run -p 8000:8000 cats-dogs-classifier:latest`
   - Or use script: `./scripts/run_docker.sh`
 
 - [x] **Verify predictions**
@@ -127,7 +127,7 @@ This checklist maps the project deliverables to the assignment requirements.
 ### 3. Artifact Publishing
 - [x] **Docker image published to registry**
   - Registry: GitHub Container Registry (ghcr.io)
-  - Image: `ghcr.io/YOUR_USERNAME/mnist-classifier:latest`
+  - Image: `ghcr.io/YOUR_USERNAME/cats-dogs-classifier:latest`
   - Tags: branch name, git SHA, latest
   - Automatic push on main branch updates
 
@@ -187,7 +187,7 @@ This checklist maps the project deliverables to the assignment requirements.
 
 - [x] **Rollback mechanism**
   - Automatic rollback on failure
-  - Command: `kubectl rollout undo deployment/mnist-deployment`
+  - Command: `kubectl rollout undo deployment/cats-dogs-deployment`
 
 **Evidence:**
 - Kubernetes manifests in `deployment/kubernetes/`
@@ -311,8 +311,8 @@ curl http://localhost:8000/health
 curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d '{...}'
 
 # Docker
-docker build -t mnist-classifier:latest .
-docker run -p 8000:8000 mnist-classifier:latest
+docker build -t cats-dogs-classifier:latest .
+docker run -p 8000:8000 cats-dogs-classifier:latest
 ```
 
 ### M3 Verification

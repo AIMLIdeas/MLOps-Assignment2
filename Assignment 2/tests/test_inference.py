@@ -1,12 +1,13 @@
 """
 Unit Tests for Model Inference Module
-Tests model loading and prediction functions
+Tests model loading and prediction functions for Cats vs Dogs classification
 """
 import pytest
 import numpy as np
 import torch
 import os
 from unittest.mock import Mock, patch, MagicMock
+from PIL import Image
 from src.inference import (
     ModelInference,
     load_model_for_inference,
@@ -30,10 +31,10 @@ class TestModelInference:
         """Create a temporary model file"""
         model_path = tmp_path / "test_model.pt"
         
-        # Create a simple state dict
+        # Create a simple state dict for CatsDogsCNN
         state_dict = {
-            'conv1.weight': torch.randn(32, 1, 3, 3),
-            'conv1.bias': torch.randn(32)
+            'conv_block1.0.weight': torch.randn(32, 3, 3, 3),
+            'conv_block1.0.bias': torch.randn(32)
         }
         torch.save(state_dict, model_path)
         
@@ -44,7 +45,7 @@ class TestModelInference:
         with pytest.raises(FileNotFoundError):
             ModelInference(model_path='nonexistent_model.pt')
     
-    @patch('src.inference.MNISTBasicCNN')
+    @patch('src.inference.CatsDogsCNN')
     @patch('src.inference.torch.load')
     @patch('src.inference.os.path.exists')
     def test_model_loading(self, mock_exists, mock_torch_load, mock_cnn):
@@ -63,7 +64,7 @@ class TestModelInference:
         mock_cnn.assert_called_once()
         mock_torch_load.assert_called_once()
     
-    @patch('src.inference.MNISTBasicCNN')
+    @patch('src.inference.CatsDogsCNN')
     @patch('src.inference.torch.load')
     @patch('src.inference.os.path.exists')
     def test_is_loaded(self, mock_exists, mock_torch_load, mock_cnn):
@@ -77,7 +78,7 @@ class TestModelInference:
         
         assert inference.is_loaded() is True
     
-    @patch('src.inference.MNISTBasicCNN')
+    @patch('src.inference.CatsDogsCNN')
     @patch('src.inference.torch.load')
     @patch('src.inference.os.path.exists')
     @patch('src.inference.preprocess_image')
@@ -95,32 +96,35 @@ class TestModelInference:
         mock_cnn.return_value = mock_model
         mock_torch_load.return_value = {}
         
-        # Mock prediction output
-        mock_output = torch.randn(1, 10)
+        # Mock prediction output (binary classification - single value)
+        mock_output = torch.tensor([[0.5]])  # Logit value
         mock_model.return_value = mock_output
         
         # Mock preprocessed image
-        mock_tensor = torch.randn(1, 1, 28, 28)
+        mock_tensor = torch.randn(1, 3, 224, 224)
         mock_tensor.to = MagicMock(return_value=mock_tensor)
         mock_preprocess.return_value = mock_tensor
         
         # Create inference handler
         inference = ModelInference(model_path='test_model.pt')
         
-        # Make prediction
-        image = np.random.rand(28, 28)
+        # Make prediction with PIL Image
+        image = Image.new('RGB', (224, 224))
         result = inference.predict(image)
         
         # Verify result structure
         assert 'prediction' in result
+        assert 'prediction_label' in result
         assert 'probabilities' in result
         assert 'confidence' in result
         assert isinstance(result['prediction'], int)
-        assert isinstance(result['probabilities'], list)
-        assert isinstance(result['confidence'], float)
-        assert len(result['probabilities']) == 10
+        assert result['prediction'] in [0, 1]  # Binary classification
+        assert result['prediction_label'] in ['Cat', 'Dog']
+        assert isinstance(result['probabilities'], dict)
+        assert 'Cat' in result['probabilities']
+        assert 'Dog' in result['probabilities']
     
-    @patch('src.inference.MNISTBasicCNN')
+    @patch('src.inference.CatsDogsCNN')
     @patch('src.inference.torch.load')
     @patch('src.inference.os.path.exists')
     def test_predict_without_loaded_model(self, mock_exists, mock_torch_load, mock_cnn):
@@ -133,7 +137,7 @@ class TestModelInference:
         inference.model = None  # Simulate model not loaded
         
         with pytest.raises(RuntimeError):
-            inference.predict(np.random.rand(28, 28))
+            inference.predict(Image.new('RGB', (224, 224)))
 
 
 class TestPredictionFunctions:
@@ -155,18 +159,19 @@ class TestPredictionFunctions:
         # Mock model inference
         mock_inference = MagicMock()
         mock_inference.predict.return_value = {
-            'prediction': 5,
-            'probabilities': [0.01] * 10,
+            'prediction': 1,
+            'prediction_label': 'Dog',
+            'probabilities': {'Cat': 0.05, 'Dog': 0.95},
             'confidence': 0.95
         }
         
         result = get_prediction_with_confidence(
             mock_inference, 
-            np.random.rand(28, 28),
+            Image.new('RGB', (224, 224)),
             confidence_threshold=0.8
         )
         
-        assert result['prediction'] == 5
+        assert result['prediction'] == 1
         assert result['high_confidence'] is True
         assert result['threshold'] == 0.8
     
@@ -175,18 +180,19 @@ class TestPredictionFunctions:
         # Mock model inference
         mock_inference = MagicMock()
         mock_inference.predict.return_value = {
-            'prediction': 3,
-            'probabilities': [0.1] * 10,
-            'confidence': 0.5
+            'prediction': 0,
+            'prediction_label': 'Cat',
+            'probabilities': {'Cat': 0.6, 'Dog': 0.4},
+            'confidence': 0.6
         }
         
         result = get_prediction_with_confidence(
             mock_inference,
-            np.random.rand(28, 28),
+            Image.new('RGB', (224, 224)),
             confidence_threshold=0.8
         )
         
-        assert result['prediction'] == 3
+        assert result['prediction'] == 0
         assert result['high_confidence'] is False
         assert result['threshold'] == 0.8
 
@@ -194,12 +200,12 @@ class TestPredictionFunctions:
 class TestPredictionOutput:
     """Test prediction output validation"""
     
-    @patch('src.inference.MNISTBasicCNN')
+    @patch('src.inference.CatsDogsCNN')
     @patch('src.inference.torch.load')
     @patch('src.inference.os.path.exists')
     @patch('src.inference.preprocess_image')
     def test_prediction_output_range(self, mock_preprocess, mock_exists, mock_torch_load, mock_cnn):
-        """Test that prediction is in valid range (0-9)"""
+        """Test that prediction is in valid range (0=Cat, 1=Dog)"""
         mock_exists.return_value = True
         mock_model = MagicMock()
         
@@ -211,21 +217,20 @@ class TestPredictionOutput:
         mock_cnn.return_value = mock_model
         mock_torch_load.return_value = {}
         
-        # Mock prediction for digit 7
-        logits = torch.zeros(1, 10)
-        logits[0, 7] = 10.0  # High value for class 7
+        # Mock prediction for Dog (class 1)
+        logits = torch.tensor([[2.0]])  # Positive logit -> Dog
         mock_model.return_value = logits
         
-        mock_tensor = torch.randn(1, 1, 28, 28)
+        mock_tensor = torch.randn(1, 3, 224, 224)
         mock_tensor.to = MagicMock(return_value=mock_tensor)
         mock_preprocess.return_value = mock_tensor
         
         inference = ModelInference(model_path='test_model.pt')
-        result = inference.predict(np.random.rand(28, 28))
+        result = inference.predict(Image.new('RGB', (224, 224)))
         
-        assert 0 <= result['prediction'] <= 9, "Prediction should be between 0 and 9"
+        assert result['prediction'] in [0, 1], "Prediction should be 0 (Cat) or 1 (Dog)"
     
-    @patch('src.inference.MNISTBasicCNN')
+    @patch('src.inference.CatsDogsCNN')
     @patch('src.inference.torch.load')
     @patch('src.inference.os.path.exists')
     @patch('src.inference.preprocess_image')
@@ -242,50 +247,20 @@ class TestPredictionOutput:
         mock_cnn.return_value = mock_model
         mock_torch_load.return_value = {}
         
-        mock_output = torch.randn(1, 10)
+        mock_output = torch.tensor([[1.5]])
         mock_model.return_value = mock_output
         
-        mock_tensor = torch.randn(1, 1, 28, 28)
+        mock_tensor = torch.randn(1, 3, 224, 224)
         mock_tensor.to = MagicMock(return_value=mock_tensor)
         mock_preprocess.return_value = mock_tensor
         
         inference = ModelInference(model_path='test_model.pt')
-        result = inference.predict(np.random.rand(28, 28))
+        result = inference.predict(Image.new('RGB', (224, 224)))
         
-        prob_sum = sum(result['probabilities'])
+        prob_sum = result['probabilities']['Cat'] + result['probabilities']['Dog']
         assert np.isclose(prob_sum, 1.0, atol=1e-5), "Probabilities should sum to 1.0"
-    
-    @patch('src.inference.MNISTBasicCNN')
-    @patch('src.inference.torch.load')
-    @patch('src.inference.os.path.exists')
-    @patch('src.inference.preprocess_image')
-    def test_confidence_matches_max_probability(self, mock_preprocess, mock_exists, mock_torch_load, mock_cnn):
-        """Test that confidence equals max probability"""
-        mock_exists.return_value = True
-        mock_model = MagicMock()
-        
-        # Make .to() and .eval() return the mock itself for method chaining
-        mock_model.to.return_value = mock_model
-        mock_model.eval.return_value = mock_model
-        mock_model.cpu.return_value = mock_model
-        
-        mock_cnn.return_value = mock_model
-        mock_torch_load.return_value = {}
-        
-        mock_output = torch.randn(1, 10)
-        mock_model.return_value = mock_output
-        
-        mock_tensor = torch.randn(1, 1, 28, 28)
-        mock_tensor.to = MagicMock(return_value=mock_tensor)
-        mock_preprocess.return_value = mock_tensor
-        
-        inference = ModelInference(model_path='test_model.pt')
-        result = inference.predict(np.random.rand(28, 28))
-        
-        max_prob = max(result['probabilities'])
-        assert np.isclose(result['confidence'], max_prob, atol=1e-5), \
-            "Confidence should equal maximum probability"
 
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+

@@ -9,7 +9,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${BLUE}=== MNIST Classifier - AWS Deployment ===${NC}\n"
+echo -e "${BLUE}=== Cats vs Dogs Classifier - AWS Deployment ===${NC}\n"
 
 # Step 1: Fix AWS credentials
 echo -e "${YELLOW}Step 1: AWS Credentials${NC}"
@@ -47,7 +47,7 @@ fi
 
 # Step 2: GitHub credentials
 echo -e "${YELLOW}Step 2: GitHub Container Registry Access${NC}"
-echo -e "Repository: ghcr.io/aimlideas/mnist-classifier:latest\n"
+echo -e "Repository: ghcr.io/aimlideas/cats-dogs-classifier:latest\n"
 
 read -p "Do you need to set GitHub PAT? (y/N): " NEED_PAT
 if [[ "$NEED_PAT" =~ ^[Yy]$ ]]; then

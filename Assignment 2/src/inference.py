@@ -1,19 +1,19 @@
 """
 Inference Module
-Handles model loading and prediction
+Handles model loading and prediction for Cats vs Dogs classification
 """
 import torch
 import numpy as np
 import os
 from src.data_preprocessing import preprocess_image
-from src.model import MNISTBasicCNN
+from src.model import CatsDogsCNN
 
 
 class ModelInference:
     """
-    Model inference handler
+    Model inference handler for Cats vs Dogs binary classification
     """
-    def __init__(self, model_path='models/mnist_cnn_model.pt'):
+    def __init__(self, model_path='models/cats_dogs_cnn_model.pt'):
         """
         Initialize inference handler
         
@@ -23,6 +23,7 @@ class ModelInference:
         self.model_path = model_path
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = None
+        self.class_names = ['Cat', 'Dog']
         self.load_model()
     
     def load_model(self):
@@ -33,18 +34,21 @@ class ModelInference:
             raise FileNotFoundError(f"Model file not found at {self.model_path}")
         
         # Initialize and load model
-        self.model = MNISTBasicCNN().to(self.device)
+        self.model = CatsDogsCNN(dropout_rate=0.5).to(self.device)
         self.model.load_state_dict(torch.load(self.model_path, map_location=self.device))
         self.model.eval()
         
         print(f"Model loaded from {self.model_path}")
     
-    def predict(self, image_array):
+    def predict(self, image_input):
         """
         Make prediction on a single image
         
         Args:
-            image_array: numpy array of shape (28, 28) or (784,)
+            image_input: Can be:
+                - PIL Image
+                - numpy array of shape (224, 224, 3) or (H, W, 3)
+                - file path to image
             
         Returns:
             dict with prediction, probabilities, and confidence
@@ -53,24 +57,26 @@ class ModelInference:
             raise RuntimeError("Model not loaded. Call load_model() first.")
         
         # Preprocess image
-        image_tensor = preprocess_image(image_array)
+        image_tensor = preprocess_image(image_input)
         image_tensor = image_tensor.to(self.device)
         
         # Make prediction
         with torch.no_grad():
             output = self.model(image_tensor)
-            probabilities = torch.nn.functional.softmax(output, dim=1)
-            confidence, predicted = torch.max(probabilities, 1)
+            probability = torch.sigmoid(output).item()
         
-        # Convert to numpy
-        probabilities_np = probabilities.cpu().numpy()[0]
-        predicted_class = predicted.item()
-        confidence_score = confidence.item()
+        # Binary classification: probability is for class 1 (Dog)
+        predicted_class = 1 if probability > 0.5 else 0
+        confidence = probability if predicted_class == 1 else (1 - probability)
         
         return {
             'prediction': predicted_class,
-            'probabilities': probabilities_np.tolist(),
-            'confidence': confidence_score
+            'prediction_label': self.class_names[predicted_class],
+            'probabilities': {
+                'Cat': 1 - probability,
+                'Dog': probability
+            },
+            'confidence': confidence
         }
     
     def predict_batch(self, image_batch):
@@ -78,7 +84,7 @@ class ModelInference:
         Make predictions on a batch of images
         
         Args:
-            image_batch: numpy array of shape (batch_size, 28, 28) or (batch_size, 784)
+            image_batch: List of images (each can be PIL Image, numpy array, or file path)
             
         Returns:
             List of prediction dictionaries
@@ -100,7 +106,7 @@ class ModelInference:
         return self.model is not None
 
 
-def load_model_for_inference(model_path='models/mnist_cnn_model.pt'):
+def load_model_for_inference(model_path='models/cats_dogs_cnn_model.pt'):
     """
     Convenience function to load model for inference
     
@@ -113,22 +119,23 @@ def load_model_for_inference(model_path='models/mnist_cnn_model.pt'):
     return ModelInference(model_path)
 
 
-def get_prediction_with_confidence(model_inference, image_array, confidence_threshold=0.8):
+def get_prediction_with_confidence(model_inference, image_input, confidence_threshold=0.8):
     """
     Get prediction with confidence check
     
     Args:
         model_inference: ModelInference instance
-        image_array: Input image
+        image_input: Input image (PIL Image, numpy array, or file path)
         confidence_threshold: Minimum confidence threshold
         
     Returns:
         dict with prediction and confidence flag
     """
-    result = model_inference.predict(image_array)
+    result = model_inference.predict(image_input)
     
     return {
         **result,
         'high_confidence': result['confidence'] >= confidence_threshold,
         'threshold': confidence_threshold
     }
+

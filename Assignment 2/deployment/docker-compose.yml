@@ -1,16 +1,16 @@
 version: '3.8'
 
 services:
-  mnist-api:
+  cats-dogs-api:
     build:
       context: .
       dockerfile: Dockerfile
-    image: mnist-classifier:latest
-    container_name: mnist-api
+    image: cats-dogs-classifier:latest
+    container_name: cats-dogs-api
     ports:
       - "8000:8000"
     environment:
-      - MODEL_PATH=/app/models/mnist_cnn_model.pt
+      - MODEL_PATH=/app/models/cats_dogs_cnn_model.pt
       - PYTHONUNBUFFERED=1
     volumes:
       - ./logs:/app/logs
@@ -22,7 +22,7 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - mnist-network
+      - cats-dogs-network
 
   # Optional: Prometheus for metrics collection
   prometheus:
@@ -37,12 +37,12 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
     networks:
-      - mnist-network
+      - cats-dogs-network
     depends_on:
-      - mnist-api
+      - cats-dogs-api
 
 networks:
-  mnist-network:
+  cats-dogs-network:
     driver: bridge
 
 volumes:

@@ -4,12 +4,14 @@ Generate sample prediction requests for testing
 """
 import json
 import numpy as np
-from torchvision import datasets, transforms
+from pathlib import Path
+from PIL import Image
+from torchvision import transforms
 
 
 def generate_sample_requests(num_samples=5, output_file='sample_requests.json'):
     """
-    Generate sample prediction requests from MNIST test data
+    Generate sample prediction requests from Cats vs Dogs test data
     
     Args:
         num_samples: Number of sample requests to generate
@@ -17,37 +19,46 @@ def generate_sample_requests(num_samples=5, output_file='sample_requests.json'):
     """
     print(f"Generating {num_samples} sample prediction requests...")
     
-    # Load MNIST test data
+    # Load Cats vs Dogs test data
     transform = transforms.Compose([
+        transforms.Resize((128, 128)),
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     
-    test_dataset = datasets.MNIST(
-        'data/raw',
-        train=False,
-        download=True,
-        transform=transform
-    )
+    # Get test images from cats_dogs dataset
+    data_dir = Path('data/raw/cats_dogs/PetImages')
+    cat_images = list((data_dir / 'Cat').glob('*.jpg'))[:num_samples//2 + 1]
+    dog_images = list((data_dir / 'Dog').glob('*.jpg'))[:num_samples//2 + 1]
     
-    # Select random samples
-    indices = np.random.choice(len(test_dataset), num_samples, replace=False)
+    all_images = cat_images + dog_images
+    indices = np.random.choice(len(all_images), min(num_samples, len(all_images)), replace=False)
     
     samples = []
     
     for idx in indices:
-        image, label = test_dataset[idx]
+        img_path = all_images[idx]
+        # Label: 0 for Cat, 1 for Dog
+        label = 0 if 'Cat' in str(img_path) else 1
         
-        # Convert to numpy and reshape
-        image_np = image.numpy().squeeze()  # (28, 28)
-        
-        # Create request
-        request = {
-            "true_label": int(label),
-            "image": image_np.tolist()
-        }
-        
-        samples.append(request)
+        try:
+            # Load and transform image
+            image = Image.open(img_path).convert('RGB')
+            image_tensor = transform(image)
+            
+            # Convert to numpy
+            image_np = image_tensor.numpy()  # (3, 128, 128)
+            
+            # Create request
+            request = {
+                "true_label": int(label),
+                "image": image_np.tolist()
+            }
+            
+            samples.append(request)
+        except Exception as e:
+            print(f"Error processing {img_path}: {e}")
+            continue
     
     # Save to file
     with open(output_file, 'w') as f:

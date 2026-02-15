@@ -44,7 +44,7 @@ python src/model.py
 **Expected Output:**
 - Training progress for 5 epochs
 - Final accuracy ~98%
-- Model saved to `models/mnist_cnn_model.pt`
+- Model saved to `models/cats_dogs_cnn_model.pt`
 - MLflow artifacts in `mlruns/`
 
 **View MLflow UI:**
@@ -61,7 +61,7 @@ dvc add data/raw
 
 # Commit to Git
 git add data/raw.dvc .gitignore
-git commit -m "Track MNIST dataset with DVC"
+git commit -m "Track Cats vs Dogs dataset with DVC"
 
 # Optional: Setup remote storage
 # dvc remote add -d myremote s3://mybucket/dvcstore
@@ -116,18 +116,18 @@ open htmlcov/index.html
 ./scripts/run_docker.sh
 
 # Or manual method
-docker build -t mnist-classifier:latest .
-docker run -d -p 8000:8000 --name mnist-api mnist-classifier:latest
+docker build -t cats-dogs-classifier:latest .
+docker run -d -p 8000:8000 --name cats-dogs-api cats-dogs-classifier:latest
 
 # Test Docker container
 ./scripts/smoke_test.sh
 
 # View logs
-docker logs -f mnist-api
+docker logs -f cats-dogs-api
 
 # Stop container
-docker stop mnist-api
-docker rm mnist-api
+docker stop cats-dogs-api
+docker rm cats-dogs-api
 ```
 
 ### 7. Run with Docker Compose
@@ -203,7 +203,7 @@ kubectl get pods
 kubectl get svc
 
 # Port forward to access locally
-kubectl port-forward service/mnist-service 8000:80
+kubectl port-forward service/cats-dogs-service 8000:80
 
 # Test deployment
 curl http://localhost:8000/health
@@ -220,7 +220,7 @@ curl http://localhost:8000/health
 kubectl apply -f deployment/kubernetes/
 
 # Get external IP
-kubectl get svc mnist-service
+kubectl get svc cats-dogs-service
 
 # Test deployment
 curl http://EXTERNAL_IP/health
@@ -233,7 +233,7 @@ curl http://EXTERNAL_IP/health
 API_URL=http://localhost:8000 ./scripts/smoke_test.sh
 
 # Test Kubernetes deployment
-API_URL=http://$(kubectl get svc mnist-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}') \
+API_URL=http://$(kubectl get svc cats-dogs-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}') \
   ./scripts/smoke_test.sh
 ```
 
@@ -243,10 +243,10 @@ API_URL=http://$(kubectl get svc mnist-service -o jsonpath='{.status.loadBalance
 
 ```bash
 # Docker
-docker logs mnist-api
+docker logs cats-dogs-api
 
 # Kubernetes
-kubectl logs -f deployment/mnist-deployment
+kubectl logs -f deployment/cats-dogs-deployment
 
 # View prediction logs
 cat logs/predictions.jsonl
@@ -280,7 +280,7 @@ cat logs/performance/performance_history.jsonl
 ### M1: Model Development & Experiment Tracking
 - [ ] Git repository initialized
 - [ ] DVC initialized and tracking data
-- [ ] Model trained and saved (models/mnist_cnn_model.pt)
+- [ ] Model trained and saved (models/cats_dogs_cnn_model.pt)
 - [ ] MLflow tracking runs visible (mlflow ui)
 - [ ] Model accuracy > 95%
 
@@ -323,7 +323,7 @@ cat logs/performance/performance_history.jsonl
 python src/model.py
 
 # Check model file exists
-ls -lh models/mnist_cnn_model.pt
+ls -lh models/cats_dogs_cnn_model.pt
 ```
 
 ### Import errors
@@ -341,10 +341,10 @@ python -c "import sys; print(sys.path)"
 docker ps
 
 # View build logs
-docker build -t mnist-classifier:latest . --no-cache
+docker build -t cats-dogs-classifier:latest . --no-cache
 
 # Check container logs
-docker logs mnist-api
+docker logs cats-dogs-api
 ```
 
 ### Kubernetes issues
