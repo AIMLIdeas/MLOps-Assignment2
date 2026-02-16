@@ -40,15 +40,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check AWS credentials
+        id: check-creds
+        run: |
+          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "has_creds=false" >> $GITHUB_OUTPUT
+            echo "⚠️ AWS credentials not configured in GitHub Secrets" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "To enable AWS deployment, add these secrets:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Go to: https://github.com/AIMLIdeas/MLOps-Assignment2/settings/secrets/actions" >> $GITHUB_STEP_SUMMARY
+            echo "2. Add secret: AWS_ACCESS_KEY_ID" >> $GITHUB_STEP_SUMMARY
+            echo "3. Add secret: AWS_SECRET_ACCESS_KEY" >> $GITHUB_STEP_SUMMARY
+            echo "4. Re-run this workflow" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "has_creds=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Verify image availability
         run: |
           echo "## Deployment Starting 🚀" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Deploying tested image that passed CI" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image tag (commit SHA):** \`${{ github.event.workflow_run.head_sha || github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image tag:** \`latest\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** ${{ inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Configure AWS credentials
+        if: steps.check-creds.outputs.has_creds == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -75,17 +92,20 @@ jobs:
           echo "Deploying image tag: ${TAG}"
 
       - name: Install kubectl
+        if: steps.check-creds.outputs.has_creds == 'true'
         uses: azure/setup-kubectl@v3
         with:
           version: 'v1.28.0'
 
       - name: Update kubeconfig for EKS
+        if: steps.check-creds.outputs.has_creds == 'true'
         run: |
           aws eks update-kubeconfig --region us-east-1 --name mnist-classifier-cluster
           kubectl version --client
           kubectl cluster-info
 
       - name: Deploy to EKS
+        if: steps.check-creds.outputs.has_creds == 'true'
         env:
           IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
         run: |
@@ -122,6 +142,7 @@ jobs:
             -n mlops --overwrite
 
       - name: Verify deployment
+        if: steps.check-creds.outputs.has_creds == 'true'
         run: |
           echo "Waiting for rollout to complete..."
           kubectl rollout status deployment/cat-dogs-deployment -n mlops --timeout=5m
@@ -139,6 +160,7 @@ jobs:
           kubectl get hpa -n mlops
 
       - name: Run smoke tests
+        if: steps.check-creds.outputs.has_creds == 'true'
         id: smoke-test
         run: |
           echo "Waiting for service to be ready..."
@@ -171,6 +193,7 @@ jobs:
           fi
       
       - name: Get service URL
+        if: steps.check-creds.outputs.has_creds == 'true'
         id: get-url
         run: |
           SERVICE_URL=$(kubectl get svc cat-dogs-service -n mlops -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
@@ -186,32 +209,50 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Deployment Summary 🚀" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Deployment Details" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment:** ${{ inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Region:** us-east-1" >> $GITHUB_STEP_SUMMARY
-          echo "- **Cluster:** mnist-classifier-cluster" >> $GITHUB_STEP_SUMMARY
-          echo "- **Namespace:** mlops" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image:** \`ghcr.io/aimlideas/mlops-assignment2/cats-dogs-classifier:${{ steps.image-tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           
-          SERVICE_URL="${{ steps.get-url.outputs.service_url }}"
-          if [ "$SERVICE_URL" != "pending" ]; then
-            echo "### Service URL" >> $GITHUB_STEP_SUMMARY
-            echo "🌐 **API Endpoint:** $SERVICE_URL" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check-creds.outputs.has_creds }}" == "true" ]; then
+            echo "### Deployment Details" >> $GITHUB_STEP_SUMMARY
+            echo "- **Environment:** ${{ inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Region:** us-east-1" >> $GITHUB_STEP_SUMMARY
+            echo "- **Cluster:** mnist-classifier-cluster" >> $GITHUB_STEP_SUMMARY
+            echo "- **Namespace:** mlops" >> $GITHUB_STEP_SUMMARY
+            echo "- **Image:** \`ghcr.io/aimlideas/mlops-assignment2/cats-dogs-classifier:${{ steps.image-tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Test the API" >> $GITHUB_STEP_SUMMARY
-            echo '```bash' >> $GITHUB_STEP_SUMMARY
-            echo "# Health check" >> $GITHUB_STEP_SUMMARY
-            echo "curl $SERVICE_URL/health" >> $GITHUB_STEP_SUMMARY
+            
+            SERVICE_URL="${{ steps.get-url.outputs.service_url }}"
+            if [ "$SERVICE_URL" != "pending" ] && [ -n "$SERVICE_URL" ]; then
+              echo "### Service URL" >> $GITHUB_STEP_SUMMARY
+              echo "🌐 **API Endpoint:** $SERVICE_URL" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### Test the API" >> $GITHUB_STEP_SUMMARY
+              echo '```bash' >> $GITHUB_STEP_SUMMARY
+              echo "# Health check" >> $GITHUB_STEP_SUMMARY
+              echo "curl $SERVICE_URL/health" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "# Test prediction (upload an image)" >> $GITHUB_STEP_SUMMARY
+              echo "curl -X POST -F 'file=@your-image.jpg' $SERVICE_URL/predict" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ **Service URL:** Pending (LoadBalancer provisioning)" >> $GITHUB_STEP_SUMMARY
+            fi
+            
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "# Test prediction (upload an image)" >> $GITHUB_STEP_SUMMARY
-            echo "curl -X POST -F 'file=@your-image.jpg' $SERVICE_URL/predict" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "### AWS Console Links" >> $GITHUB_STEP_SUMMARY
+            echo "- [EKS Cluster](https://console.aws.amazon.com/eks/home?region=us-east-1#/clusters/mnist-classifier-cluster)" >> $GITHUB_STEP_SUMMARY
+            echo "- [CloudWatch Logs](https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#logs:)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ **Service URL:** Pending (LoadBalancer provisioning)" >> $GITHUB_STEP_SUMMARY
+            echo "### ⚠️ AWS Deployment Skipped" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "AWS credentials are not configured in GitHub Secrets." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**To enable AWS EKS deployment:**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "1. Go to [Repository Secrets](https://github.com/AIMLIdeas/MLOps-Assignment2/settings/secrets/actions)" >> $GITHUB_STEP_SUMMARY
+            echo "2. Click **New repository secret**" >> $GITHUB_STEP_SUMMARY
+            echo "3. Add **AWS_ACCESS_KEY_ID** with your AWS access key" >> $GITHUB_STEP_SUMMARY
+            echo "4. Add **AWS_SECRET_ACCESS_KEY** with your AWS secret key" >> $GITHUB_STEP_SUMMARY
+            echo "5. Re-run this workflow" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**ℹ️ Note:** The Docker image was still built and tested successfully!" >> $GITHUB_STEP_SUMMARY
+            echo "- Image: \`ghcr.io/aimlideas/mlops-assignment2/cats-dogs-classifier:latest\`" >> $GITHUB_STEP_SUMMARY
           fi
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### AWS Console Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [EKS Cluster](https://console.aws.amazon.com/eks/home?region=us-east-1#/clusters/mnist-classifier-cluster)" >> $GITHUB_STEP_SUMMARY
-          echo "- [CloudWatch Logs](https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#logs:)" >> $GITHUB_STEP_SUMMARY
