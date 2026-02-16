@@ -77,19 +77,16 @@ jobs:
 
       # Step 4: Extract metadata for Docker image
       # This generates proper tags and labels for the image
-      # Tags include: latest, SHA, short SHA, branch name
+      # Primary tag: latest (for production)
+      # Additional tag: commit SHA (for traceability)
       - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-
-            type=sha,format=short
-            type=sha
             type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
           labels: |
             org.opencontainers.image.source=https://github.com/AIMLIdeas/MLOps-Assignment2
             org.opencontainers.image.description=Cat & Dogs Classifier API for MLOps Assignment

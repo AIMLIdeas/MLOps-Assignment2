@@ -67,10 +67,9 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ inputs.image_tag }}" ]; then
             echo "tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" == "workflow_run" ]; then
-            echo "tag=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
           else
-            echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+            # Use latest tag for production deployments
+            echo "tag=latest" >> $GITHUB_OUTPUT
           fi
           TAG=$(grep tag $GITHUB_OUTPUT | cut -d= -f2)
           echo "Deploying image tag: ${TAG}"
