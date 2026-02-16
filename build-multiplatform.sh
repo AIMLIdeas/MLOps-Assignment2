@@ -9,7 +9,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}=== Multi-Platform Docker Build & Push ===${NC}"
+echo -e "${BLUE}=== Docker Build & Push for AWS ===${NC}"
 echo ""
 
 # ===============================
@@ -19,8 +19,8 @@ REGISTRY="ghcr.io"
 REPO_OWNER="aimlideas"
 NAMESPACE="aimlideas/mlops-assignment2"
 REPO="cats-dogs-classifier"
-PLATFORMS="linux/amd64,linux/arm64"
-BUILDER_NAME="multiplatform-builder"
+PLATFORMS="linux/amd64"
+BUILDER_NAME="aws-builder"
 
 # Get credentials
 GITHUB_USERNAME="${GITHUB_USERNAME:-$REPO_OWNER}"
@@ -107,8 +107,8 @@ fi
 # ===============================
 # STEP 3: Build & Push
 # ===============================
-echo -e "${BLUE}Step 3: Building and pushing multi-platform images...${NC}"
-echo "This may take 10-15 minutes depending on your connection..."
+echo -e "${BLUE}Step 3: Building and pushing Docker image for AWS...${NC}"
+echo "This may take 5-8 minutes depending on your connection..."
 echo ""
 
 docker buildx build \
@@ -140,9 +140,8 @@ echo "  - ${TAG_LATEST}"
 echo "  - ${TAG_SHA}"
 echo "  - ${TAG_SHORT_SHA}"
 echo ""
-echo -e "${YELLOW}Platforms:${NC}"
-echo "  - linux/amd64"
-echo "  - linux/arm64"
+echo -e "${YELLOW}Platform:${NC}"
+echo "  - linux/amd64 (AWS standard)"
 echo ""
 echo "View at: https://github.com/${REPO_OWNER}/MLOps-Assignment2/pkgs/container/${REPO}"
 echo ""
