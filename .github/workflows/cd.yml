@@ -97,6 +97,30 @@ jobs:
         with:
           version: 'v1.28.0'
 
+      - name: Install eksctl
+        if: steps.check-creds.outputs.has_creds == 'true'
+        run: |
+          # Install eksctl for EKS cluster management
+          curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+          sudo mv /tmp/eksctl /usr/local/bin
+          eksctl version
+
+      - name: Check and create EKS cluster if needed
+        if: steps.check-creds.outputs.has_creds == 'true'
+        run: |
+          echo "Checking if EKS cluster exists..."
+          
+          if aws eks describe-cluster --name mnist-classifier-cluster --region us-east-1 2>/dev/null; then
+            echo "✓ Cluster mnist-classifier-cluster already exists"
+          else
+            echo "Cluster doesn't exist. Creating new EKS cluster..."
+            echo "This will take approximately 15-20 minutes."
+            
+            eksctl create cluster -f deployment/kubernetes/eks-cluster-config.yaml
+            
+            echo "✓ Cluster created successfully"
+          fi
+
       - name: Update kubeconfig for EKS
         if: steps.check-creds.outputs.has_creds == 'true'
         run: |
