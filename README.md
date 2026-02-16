@@ -184,19 +184,24 @@ Response: {"prediction": 5, "probabilities": [0.01, ...], "confidence": 0.98}
 ## CI/CD Pipeline
 
 ### Continuous Integration (GitHub Actions)
-On every push/PR:
-1. Checkout code
-2. Install dependencies
-3. Run unit tests
-4. Build Docker image
-5. Push to container registry
+On every push to main (after tests pass):
+1. **Test Stage**: Checkout code, install dependencies, run pytest
+2. **Build & Push Stage** (main branch only):
+   - Build Docker image
+   - Push to GHCR with tags: `:latest` and `:${{github.sha}}`
+   - Creates immutable, tested artifacts
 
 ### Continuous Deployment
-On main branch updates:
-1. Pull latest image
-2. Deploy to Kubernetes/Docker Compose
-3. Run smoke tests
-4. Rollback on failure
+Automatically triggered when CI completes successfully:
+1. Detect the SHA-tagged image from CI
+2. Deploy the exact tested image to AWS EKS
+3. Run health checks and smoke tests
+4. Verify deployment status
+
+**Key Architecture**: "Build once, test once, deploy many times"
+- CI builds and tests the Docker image
+- CD only deploys pre-tested artifacts (never rebuilds)
+- SHA-based tagging ensures version traceability
 
 ## Monitoring
 
