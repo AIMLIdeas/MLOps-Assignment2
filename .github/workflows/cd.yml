@@ -110,10 +110,29 @@ jobs:
         run: |
           echo "Checking if EKS cluster exists..."
           
+          # Check if cluster is running
           if aws eks describe-cluster --name mnist-classifier-cluster --region us-east-1 2>/dev/null; then
-            echo "✓ Cluster mnist-classifier-cluster already exists"
+            CLUSTER_STATUS=$(aws eks describe-cluster --name mnist-classifier-cluster --region us-east-1 --query 'cluster.status' --output text)
+            echo "✓ Cluster mnist-classifier-cluster exists with status: $CLUSTER_STATUS"
+            
+            if [ "$CLUSTER_STATUS" != "ACTIVE" ]; then
+              echo "⚠️ Cluster exists but is not ACTIVE. Current status: $CLUSTER_STATUS"
+              echo "Waiting for cluster to become ACTIVE..."
+              aws eks wait cluster-active --name mnist-classifier-cluster --region us-east-1
+            fi
           else
-            echo "Cluster doesn't exist. Creating new EKS cluster..."
+            echo "Cluster doesn't exist. Checking for leftover CloudFormation stacks..."
+            
+            # Check if CloudFormation stack exists but cluster doesn't
+            if aws cloudformation describe-stacks --stack-name eksctl-mnist-classifier-cluster-cluster --region us-east-1 2>/dev/null; then
+              echo "⚠️ Found orphaned CloudFormation stack. Deleting it first..."
+              aws cloudformation delete-stack --stack-name eksctl-mnist-classifier-cluster-cluster --region us-east-1
+              echo "Waiting for stack deletion to complete..."
+              aws cloudformation wait stack-delete-complete --stack-name eksctl-mnist-classifier-cluster-cluster --region us-east-1 || true
+              echo "✓ Orphaned stack deleted"
+            fi
+            
+            echo "Creating new EKS cluster..."
             echo "This will take approximately 15-20 minutes."
             
             eksctl create cluster -f deployment/kubernetes/eks-cluster-config.yaml
