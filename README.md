@@ -184,24 +184,39 @@ Response: {"prediction": 5, "probabilities": [0.01, ...], "confidence": 0.98}
 ## CI/CD Pipeline
 
 ### Continuous Integration (GitHub Actions)
-On every push to main (after tests pass):
-1. **Test Stage**: Checkout code, install dependencies, run pytest
-2. **Build & Push Stage** (main branch only):
-   - Build Docker image
-   - Push to GHCR with tags: `:latest` and `:${{github.sha}}`
+**Three-Job Pipeline with Parallel Execution:**
+
+1. **Build Job** (runs in parallel with test):
+   - Builds Docker image
+   - Tags with `:latest` and `:${{github.sha}}`
+   - Saves image as artifact for push job
+   - Uses Docker layer caching
+
+2. **Test Job** (runs in parallel with build):
+   - Checks out code
+   - Installs Python 3.9 dependencies
+   - Runs pytest with unit tests
+   - Independent code verification
+
+3. **Push Job** (only after BOTH build AND test succeed):
+   - Downloads built image artifact
+   - Pushes to GHCR (main branch only)
+   - Tags: `:latest` and `:${{github.sha}}`
    - Creates immutable, tested artifacts
 
 ### Continuous Deployment
 Automatically triggered when CI completes successfully:
-1. Detect the SHA-tagged image from CI
-2. Deploy the exact tested image to AWS EKS
-3. Run health checks and smoke tests
-4. Verify deployment status
+1. Verifies image availability from CI
+2. Configures AWS credentials
+3. Deploys exact SHA-tagged image to AWS EKS
+4. Runs health checks and smoke tests
+5. Verifies deployment status
 
-**Key Architecture**: "Build once, test once, deploy many times"
-- CI builds and tests the Docker image
-- CD only deploys pre-tested artifacts (never rebuilds)
-- SHA-based tagging ensures version traceability
+**Key Architecture**: 
+- Build and test run in **parallel** for faster feedback
+- Push only happens if **both** build and test pass
+- CD deploys the **exact image** that was built and tested
+- SHA tagging ensures complete version traceability
 
 ## Monitoring
 

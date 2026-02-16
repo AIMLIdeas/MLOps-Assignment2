@@ -93,19 +93,28 @@ This checklist maps the project deliverables to the assignment requirements.
   - Location: `.github/workflows/ci.yml`
   - Trigger: On push to main/develop, on pull requests
   
-  **Test Stage (all branches):**
+  **Job 1: Build (runs in parallel with test)**
   - [x] Checkout repository
-  - [x] Install dependencies
+  - [x] Set up Docker Buildx
+  - [x] Build Docker image with layer caching
+  - [x] Tag with `:latest` and `:${{github.sha}}`
+  - [x] Save image as artifact
+  
+  **Job 2: Test (runs in parallel with build)**
+  - [x] Checkout repository
+  - [x] Install Python 3.9 dependencies
   - [x] Run unit tests (pytest)
   
-  **Build & Push Stage (main branch only):**
-  - [x] Build Docker image
-  - [x] Push to GHCR with two tags:
-    * `:latest` for convenience
-    * `:${{github.sha}}` for immutable versioning
-  - [x] Only runs after tests pass
+  **Job 3: Push (only after both build AND test succeed)**
+  - [x] Download built image artifact
+  - [x] Login to GHCR
+  - [x] Push image with both tags
+  - [x] Only runs on main branch (not PRs)
   
-  **Key Principle**: Build once, test the built artifact
+  **Key Advantages:**
+  - Build and test run in parallel (faster pipeline)
+  - Push only happens if both jobs succeed (safety)
+  - Immutable artifacts with SHA tagging
 
 ### 3. Artifact Publishing
   - Registry: GitHub Container Registry (ghcr.io)
@@ -134,19 +143,20 @@ This checklist maps the project deliverables to the assignment requirements.
   - Location: `.github/workflows/cd.yml`
   - Trigger: Automatic on successful CI completion (workflow_run event)
   
+  - [x] Verify image availability from CI
   - [x] Detect SHA-tagged image from CI workflow
   - [x] Configure AWS credentials
   - [x] Update EKS kubeconfig
   - [x] Apply Kubernetes manifests
   - [x] Deploy specific tested image (kubectl set image)
   - [x] Wait for rollout status
-  - [x] Run smoke tests
+  - [x] Run smoke tests and health checks
 
   **Trigger Options:**
-  - Automatic: When CI workflow completes successfully
+  - Automatic: When CI workflow completes successfully (all 3 jobs pass)
   - Manual: workflow_dispatch with optional image tag input
   
-  **Key Principle**: Never rebuild - only deploy pre-tested images from CI
+  **Key Principle**: Never rebuild or retest - only deploy the exact image that passed CI's build and test jobs
 
 ### 3. Smoke Tests / Health Check
   - Location: `scripts/smoke_test.sh`

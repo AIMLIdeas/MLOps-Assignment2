@@ -310,17 +310,25 @@ This document describes the complete MLOps pipeline architecture.
    └─> git push origin main
 
 2. CI Pipeline (Automatic)
-   ├─> Test Stage
+   ├─> Build Job (parallel)
+   │   ├─> Checkout code
+   │   ├─> Build Docker image
+   │   ├─> Tag :latest and :${{github.sha}}
+   │   └─> Save as artifact
+   │
+   ├─> Test Job (parallel)
    │   ├─> Checkout code
    │   ├─> Install dependencies
    │   └─> Run pytest
-   └─> Build & Push Stage (if tests pass)
-       ├─> Build Docker image
-       ├─> Tag: :latest and :${{github.sha}}
-       └─> Push to GHCR
+   │
+   └─> Push Job (after both succeed)
+       ├─> Download image artifact
+       ├─> Login to GHCR
+       └─> Push both tags to registry
 
 3. CD Pipeline (Auto-triggered on CI success)
-   ├─> Detect tested image SHA
+   ├─> Verify image from CI
+   ├─> Configure AWS credentials
    ├─> Deploy to AWS EKS
    │   ├─> Apply K8s manifests
    │   └─> Set image to specific SHA tag
@@ -328,11 +336,12 @@ This document describes the complete MLOps pipeline architecture.
    └─> Run smoke tests
 
 4. Verification
-   └─> Check logs
-   └─> Check metrics
+   ├─> Check logs
+   ├─> Check metrics
    └─> Validate predictions
 
-Note: CD never rebuilds - only deploys images built by CI
+Note: Build and test run in parallel for faster feedback
+      CD never rebuilds - only deploys images from CI
 ```
 
 ## Cost Optimization

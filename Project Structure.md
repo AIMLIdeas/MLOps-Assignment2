@@ -30,8 +30,8 @@ Assignment 2/
 │   ├── generate_samples.py          # Test data generation
 │   └── verify_setup.py              # Verification script
 ├── .github/workflows/                # CI/CD Pipelines
-│   ├── ci.yml                       # M3: Build & test (creates tested images)
-│   └── cd.yml                       # M4: Deploy pre-tested artifacts to EKS
+│   ├── ci.yml                       # M3: 3 jobs - build||test → push
+│   └── cd.yml                       # M4: Deploy to EKS after CI success
 ├── models/                           # Trained models
 │   └── .gitkeep
 ├── data/                             # Data directory
