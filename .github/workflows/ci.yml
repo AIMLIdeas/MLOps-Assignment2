@@ -1,10 +1,14 @@
-name: CI
+name: CI - Test Docker Image
 
 on:
-  push:
+  # Run after build-docker workflow completes
+  workflow_run:
+    workflows: ["Build and Push Docker Image"]
+    types:
+      - completed
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  
+  # Allow manual trigger
   workflow_dispatch:
     inputs:
       image_tag:
@@ -16,19 +20,28 @@ jobs:
   test:
     name: Test Docker Image
     runs-on: ubuntu-latest
+    # Only run if build workflow succeeded or if manually triggered
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: read
+      packages: read
+      
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set image tag
         id: image-tag
         run: |
           if [ -n "${{ inputs.image_tag }}" ]; then
             echo "tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "workflow_run" ]; then
+            echo "tag=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
           else
             echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
-          echo "Testing image: ghcr.io/aimlideas/mlops-assignment2/cats-dogs-classifier:$(cat $GITHUB_OUTPUT | grep tag | cut -d= -f2)"
+          TAG=$(grep tag $GITHUB_OUTPUT | cut -d= -f2)
+          echo "Testing image: ghcr.io/aimlideas/mlops-assignment2/cats-dogs-classifier:${TAG}"
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -65,3 +78,12 @@ jobs:
           curl -f http://localhost:8000/health || exit 1
           docker stop $CONTAINER_ID
           echo "✓ Container health check passed"
+      
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## CI Test Summary 🧪" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image Tag:** \`${{ steps.image-tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`ghcr.io/aimlideas/mlops-assignment2/cats-dogs-classifier:${{ steps.image-tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
