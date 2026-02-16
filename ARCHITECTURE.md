@@ -306,42 +306,37 @@ This document describes the complete MLOps pipeline architecture.
 
 ### Production Deployment
 ```
-1. Push to GitHub
+1. Developer builds locally
+   ├─> ./scripts/build_and_push.sh
+   ├─> Builds Docker image
+   ├─> Tags with current git SHA
+   └─> Pushes to GHCR
+
+2. Push code to GitHub
    └─> git push origin main
 
-2. CI Pipeline (Automatic)
-   ├─> Build Job (parallel)
-   │   ├─> Checkout code
-   │   ├─> Build Docker image
-   │   ├─> Tag :latest and :${{github.sha}}
-   │   └─> Save as artifact
-   │
-   ├─> Test Job (parallel)
-   │   ├─> Checkout code
-   │   ├─> Install dependencies
-   │   └─> Run pytest
-   │
-   └─> Push Job (after both succeed)
-       ├─> Download image artifact
-       ├─> Login to GHCR
-       └─> Push both tags to registry
+3. CI Pipeline (Automatic)
+   ├─> Pull pre-built image from GHCR
+   ├─> Run pytest inside container
+   ├─> Test /health endpoint
+   └─> Mark as successful if all pass
 
-3. CD Pipeline (Auto-triggered on CI success)
-   ├─> Verify image from CI
+4. CD Pipeline (Auto-triggered on CI success)
+   ├─> Verify tested image (SHA tag)
    ├─> Configure AWS credentials
    ├─> Deploy to AWS EKS
    │   ├─> Apply K8s manifests
-   │   └─> Set image to specific SHA tag
+   │   └─> Set image to tested SHA tag
    ├─> Verify rollout
    └─> Run smoke tests
 
-4. Verification
+5. Verification
    ├─> Check logs
    ├─> Check metrics
    └─> Validate predictions
 
-Note: Build and test run in parallel for faster feedback
-      CD never rebuilds - only deploys images from CI
+Note: CI tests the actual Docker container (not separate code)
+      CD deploys the exact container that passed CI tests
 ```
 
 ## Cost Optimization

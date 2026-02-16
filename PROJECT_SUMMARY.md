@@ -79,7 +79,7 @@ Assignment 2/
 - **Model**: Simple CNN, ~98% accuracy on MNIST
 - **API**: FastAPI with /health and /predict endpoints
 - **Container**: Multi-stage Docker build, non-root user
-- **CI/CD**: 3-job CI (build||test → push), CD auto-deploys after CI success
+- **CI/CD**: Build locally → CI tests container → CD auto-deploys
 - **Monitoring**: Prometheus metrics, JSON logs
 - **Deployment**: AWS EKS with auto-scaling (2-5 replicas)
 

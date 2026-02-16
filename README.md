@@ -183,40 +183,50 @@ Response: {"prediction": 5, "probabilities": [0.01, ...], "confidence": 0.98}
 
 ## CI/CD Pipeline
 
+### Developer Workflow
+**Build and Push Docker Image Locally:**
+```bash
+# Set your GitHub token
+export GITHUB_TOKEN=your_token_here
+
+# Build and push image with git SHA tag
+./scripts/build_and_push.sh
+
+# Push code to GitHub
+git push origin main
+```
+
+The script:
+- Builds Docker image with current git SHA tag
+- Pushes to GHCR: `ghcr.io/aimlideas/mlops-assignment2/cats-dogs-classifier:$SHA`
+- Tags as `:latest` for convenience
+
 ### Continuous Integration (GitHub Actions)
-**Three-Job Pipeline with Parallel Execution:**
+**Single Test Job - Tests Pre-built Container:**
 
-1. **Build Job** (runs in parallel with test):
-   - Builds Docker image
-   - Tags with `:latest` and `:${{github.sha}}`
-   - Saves image as artifact for push job
-   - Uses Docker layer caching
+1. **Pull Image**: Downloads the Docker image you built locally from GHCR
+2. **Test Inside Container**: Runs pytest inside the Docker container
+3. **Health Check**: Starts container and verifies `/health` endpoint
+4. **Mark Success**: If all tests pass, triggers CD
 
-2. **Test Job** (runs in parallel with build):
-   - Checks out code
-   - Installs Python 3.9 dependencies
-   - Runs pytest with unit tests
-   - Independent code verification
-
-3. **Push Job** (only after BOTH build AND test succeed):
-   - Downloads built image artifact
-   - Pushes to GHCR (main branch only)
-   - Tags: `:latest` and `:${{github.sha}}`
-   - Creates immutable, tested artifacts
+**Key Advantage**: Tests the **actual artifact** that will be deployed, not separate code
 
 ### Continuous Deployment
 Automatically triggered when CI completes successfully:
-1. Verifies image availability from CI
+1. Verifies tested image availability (SHA tag from CI)
 2. Configures AWS credentials
-3. Deploys exact SHA-tagged image to AWS EKS
+3. Deploys exact tested Docker image to AWS EKS
 4. Runs health checks and smoke tests
 5. Verifies deployment status
 
-**Key Architecture**: 
-- Build and test run in **parallel** for faster feedback
-- Push only happens if **both** build and test pass
-- CD deploys the **exact image** that was built and tested
-- SHA tagging ensures complete version traceability
+**Complete Flow**:
+```
+Local: Build → Push to GHCR
+         ↓
+CI:    Pull → Test in Container → Pass ✓
+         ↓
+CD:    Deploy to AWS EKS
+```
 
 ## Monitoring
 

@@ -92,29 +92,27 @@ This checklist maps the project deliverables to the assignment requirements.
 ### 2. CI Setup (GitHub Actions)
   - Location: `.github/workflows/ci.yml`
   - Trigger: On push to main/develop, on pull requests
+  - Prerequisites: Docker image built locally and pushed to GHCR
   
-  **Job 1: Build (runs in parallel with test)**
-  - [x] Checkout repository
-  - [x] Set up Docker Buildx
-  - [x] Build Docker image with layer caching
-  - [x] Tag with `:latest` and `:${{github.sha}}`
-  - [x] Save image as artifact
-  
-  **Job 2: Test (runs in parallel with build)**
-  - [x] Checkout repository
-  - [x] Install Python 3.9 dependencies
-  - [x] Run unit tests (pytest)
-  
-  **Job 3: Push (only after both build AND test succeed)**
-  - [x] Download built image artifact
+  **Test Job (tests pre-built Docker container):**
+  - [x] Set image tag (uses git SHA)
   - [x] Login to GHCR
-  - [x] Push image with both tags
-  - [x] Only runs on main branch (not PRs)
+  - [x] Pull Docker image from registry
+  - [x] Run pytest inside the Docker container
+  - [x] Start container and verify /health endpoint
+  - [x] Mark successful if all tests pass
+  
+  **Developer Build Script:**
+  - Location: `scripts/build_and_push.sh`
+  - [x] Builds image with git SHA tag
+  - [x] Pushes to GHCR: `ghcr.io/.../cats-dogs-classifier:$SHA`
+  - [x] Requires GITHUB_TOKEN environment variable
   
   **Key Advantages:**
-  - Build and test run in parallel (faster pipeline)
-  - Push only happens if both jobs succeed (safety)
-  - Immutable artifacts with SHA tagging
+  - Tests the actual Docker container (not separate code)
+  - Simpler CI - just pull and test
+  - Developers can test exact image locally before pushing
+  - CI validates the deployable artifact
 
 ### 3. Artifact Publishing
   - Registry: GitHub Container Registry (ghcr.io)
@@ -142,9 +140,9 @@ This checklist maps the project deliverables to the assignment requirements.
 ### 2. CD / GitOps Flow
   - Location: `.github/workflows/cd.yml`
   - Trigger: Automatic on successful CI completion (workflow_run event)
+  - Prerequisites: Docker image tested successfully by CI
   
-  - [x] Verify image availability from CI
-  - [x] Detect SHA-tagged image from CI workflow
+  - [x] Verify tested image availability (SHA tag)
   - [x] Configure AWS credentials
   - [x] Update EKS kubeconfig
   - [x] Apply Kubernetes manifests
@@ -153,10 +151,10 @@ This checklist maps the project deliverables to the assignment requirements.
   - [x] Run smoke tests and health checks
 
   **Trigger Options:**
-  - Automatic: When CI workflow completes successfully (all 3 jobs pass)
+  - Automatic: When CI workflow completes successfully
   - Manual: workflow_dispatch with optional image tag input
   
-  **Key Principle**: Never rebuild or retest - only deploy the exact image that passed CI's build and test jobs
+  **Key Principle**: Deploy the exact Docker container that passed CI tests (built locally, tested in CI)
 
 ### 3. Smoke Tests / Health Check
   - Location: `scripts/smoke_test.sh`
