@@ -11,13 +11,21 @@ NAMESPACE="aimlideas/mlops-assignment2"
 REPO="cats-dogs-classifier"
 TAG="latest"
 
-FULL_IMAGE="ghcr.io/$NAMESPACE/$REPO:$TAG"
+# Get current git SHA
+GIT_SHA=$(git rev-parse HEAD)
+
+FULL_IMAGE_LATEST="ghcr.io/$NAMESPACE/$REPO:$TAG"
+FULL_IMAGE_SHA="ghcr.io/$NAMESPACE/$REPO:$GIT_SHA"
 
 if [ -z "$GITHUB_PAT" ]; then
   echo "Error: GITHUB_PAT environment variable is not set"
   echo "Please export GITHUB_PAT=your_token before running this script"
   exit 1
 fi
+
+echo "==================================="
+echo "Git SHA: $GIT_SHA"
+echo "==================================="
 
 echo "==================================="
 echo "Logging into GitHub Container Registry..."
@@ -27,14 +35,18 @@ echo "$GITHUB_PAT" | docker login ghcr.io -u "$GITHUB_USERNAME" --password-stdin
 echo "==================================="
 echo "Tagging image..."
 echo "==================================="
-docker tag $REPO:$TAG $FULL_IMAGE
+docker tag $REPO:$TAG $FULL_IMAGE_LATEST
+docker tag $REPO:$TAG $FULL_IMAGE_SHA
 
 echo "==================================="
-echo "Pushing image to GHCR..."
+echo "Pushing images to GHCR..."
 echo "==================================="
-docker push $FULL_IMAGE
+docker push $FULL_IMAGE_LATEST
+docker push $FULL_IMAGE_SHA
 
 echo "==================================="
 echo "DONE 🚀"
-echo "Image pushed as: $FULL_IMAGE"
+echo "Images pushed as:"
+echo "  - $FULL_IMAGE_LATEST"
+echo "  - $FULL_IMAGE_SHA"
 echo "==================================="
