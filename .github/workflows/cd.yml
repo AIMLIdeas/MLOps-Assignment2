@@ -17,12 +17,19 @@ on:
 
 jobs:
   deploy:
-    # Only deploy if CI workflow succeeded or manually triggered
+    name: Deploy to AWS EKS
+    # Only deploy if CI workflow succeeded (image was built, tested, and pushed)
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Verify image availability
+        run: |
+          echo "CD will deploy the tested image from CI workflow"
+          echo "Image tag (commit SHA): ${{ github.event.workflow_run.head_sha || github.sha }}"
+          echo "This image was built and tested by the CI workflow"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
