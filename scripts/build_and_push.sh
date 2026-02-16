@@ -55,17 +55,6 @@ if [[ -n $(git status -s) ]]; then
     fi
 fi
 
-# Build Docker image
-echo -e "${GREEN}Step 1: Building Docker image...${NC}"
-docker build -t ${FULL_IMAGE}:${GIT_SHA} -t ${FULL_IMAGE}:latest .
-
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Build successful${NC}"
-else
-    echo -e "${RED}✗ Build failed${NC}"
-    exit 1
-fi
-
 # Login to GHCR
 echo ""
 echo -e "${GREEN}Step 2: Logging in to GitHub Container Registry...${NC}"
@@ -78,14 +67,30 @@ else
     exit 1
 fi
 
-# Push images
+# Setup buildx for multi-platform
 echo ""
-echo -e "${GREEN}Step 3: Pushing images to registry...${NC}"
-echo "Pushing ${FULL_IMAGE}:${GIT_SHA}..."
-docker push ${FULL_IMAGE}:${GIT_SHA}
+echo -e "${GREEN}Step 3: Setting up Docker Buildx for multi-platform builds...${NC}"
+docker buildx create --use --name multiplatform-builder 2>/dev/null || docker buildx use multiplatform-builder
 
-echo "Pushing ${FULL_IMAGE}:latest..."
-docker push ${FULL_IMAGE}:latest
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✓ Buildx ready${NC}"
+else
+    echo -e "${RED}✗ Buildx setup failed${NC}"
+    exit 1
+fi
+
+# Build and push multi-platform images
+echo ""
+echo -e "${GREEN}Step 4: Building and pushing multi-platform images...${NC}"
+echo "Platform: linux/amd64,linux/arm64"
+echo "Tags: ${GIT_SHA}, latest"
+
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --push \
+  --tag ${FULL_IMAGE}:${GIT_SHA} \
+  --tag ${FULL_IMAGE}:latest \
+  .
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Push successful${NC}"

@@ -33,16 +33,20 @@ echo "==================================="
 echo "$GITHUB_PAT" | docker login ghcr.io -u "$GITHUB_USERNAME" --password-stdin
 
 echo "==================================="
-echo "Tagging image..."
+echo "Setting up Docker Buildx for multi-platform builds..."
 echo "==================================="
-docker tag $REPO:$TAG $FULL_IMAGE_LATEST
-docker tag $REPO:$TAG $FULL_IMAGE_SHA
+docker buildx create --use --name multiplatform-builder || docker buildx use multiplatform-builder
 
 echo "==================================="
-echo "Pushing images to GHCR..."
+echo "Building and pushing multi-platform image..."
+echo "Platform: linux/amd64,linux/arm64"
 echo "==================================="
-docker push $FULL_IMAGE_LATEST
-docker push $FULL_IMAGE_SHA
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --push \
+  --tag $FULL_IMAGE_LATEST \
+  --tag $FULL_IMAGE_SHA \
+  .
 
 echo "==================================="
 echo "DONE 🚀"
