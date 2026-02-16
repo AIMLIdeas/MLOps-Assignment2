@@ -13,7 +13,7 @@ echo -e "${GREEN}=== Completing MNIST Classifier EKS Deployment ===${NC}\n"
 
 # Check node group status
 echo -e "${YELLOW}Checking node group status...${NC}"
-STATUS=$(aws eks describe-nodegroup --cluster-name mnist-classifier-cluster --nodegroup-name mnist-ng-1 --region us-east-1 --query 'nodegroup.status' --output text)
+STATUS=$(aws eks describe-nodegroup --cluster-name mlops-assignment2-cluster --nodegroup-name mlops-ng-1 --region us-east-1 --query 'nodegroup.status' --output text)
 echo "Node group status: $STATUS"
 
 if [ "$STATUS" != "ACTIVE" ]; then
@@ -21,7 +21,7 @@ if [ "$STATUS" != "ACTIVE" ]; then
     echo -e "${YELLOW}Waiting for node group to become ACTIVE...${NC}"
     while [ "$STATUS" != "ACTIVE" ]; do
         sleep 30
-        STATUS=$(aws eks describe-nodegroup --cluster-name mnist-classifier-cluster --nodegroup-name mnist-ng-1 --region us-east-1 --query 'nodegroup.status' --output text)
+        STATUS=$(aws eks describe-nodegroup --cluster-name mlops-assignment2-cluster --nodegroup-name mlops-ng-1 --region us-east-1 --query 'nodegroup.status' --output text)
         echo "Status: $STATUS"
     done
 fi

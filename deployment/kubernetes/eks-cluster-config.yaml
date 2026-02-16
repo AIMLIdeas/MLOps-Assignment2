@@ -31,7 +31,7 @@ vpc:
 
 # Node groups
 managedNodeGroups:
-  - name: mnist-ng-1
+  - name: mlops-ng-1
     instanceType: t3.small
     desiredCapacity: 2
     minSize: 1
@@ -42,7 +42,7 @@ managedNodeGroups:
       role: worker
       environment: production
     tags:
-      Name: mnist-classifier-node
+      Name: mlops-assignment2-node
       Environment: production
       Project: MLOps-Assignment2
     iam:
