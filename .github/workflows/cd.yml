@@ -55,6 +55,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Set image tag
         id: image-tag
         run: |
@@ -65,10 +72,19 @@ jobs:
           else
             echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
+          TAG=$(grep tag $GITHUB_OUTPUT | cut -d= -f2)
+          echo "Deploying image tag: ${TAG}"
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
 
       - name: Update kubeconfig for EKS
         run: |
           aws eks update-kubeconfig --region us-east-1 --name mnist-classifier-cluster
+          kubectl version --client
+          kubectl cluster-info
 
       - name: Deploy to EKS
         env:
@@ -76,33 +92,127 @@ jobs:
         run: |
           echo "Deploying image: ghcr.io/aimlideas/mlops-assignment2/cats-dogs-classifier:${IMAGE_TAG}"
           
-          # Apply Kubernetes manifests
+          # Apply Kubernetes manifests in order
+          echo "Applying namespace..."
           kubectl apply -f deployment/kubernetes/namespace.yaml
+          
+          echo "Applying configmap..."
           kubectl apply -f deployment/kubernetes/configmap.yaml
+          
+          echo "Applying GHCR secret..."
           kubectl apply -f deployment/kubernetes/secret-ghcr.yaml
+          
+          echo "Applying deployment..."
           kubectl apply -f deployment/kubernetes/deployment.yaml
+          
+          echo "Applying service..."
           kubectl apply -f deployment/kubernetes/service.yaml
+          
+          echo "Applying HPA..."
           kubectl apply -f deployment/kubernetes/hpa.yaml
           
           # Update deployment with specific tested image
+          echo "Updating deployment with tested image: ${IMAGE_TAG}"
           kubectl set image deployment/cat-dogs-deployment \
             cat-dogs-classifier=ghcr.io/aimlideas/mlops-assignment2/cats-dogs-classifier:${IMAGE_TAG} \
             -n mlops
+          
+          # Annotate deployment with build info
+          kubectl annotate deployment/cat-dogs-deployment \
+            kubernetes.io/change-cause="Deployed by GitHub Actions - SHA: ${IMAGE_TAG}" \
+            -n mlops --overwrite
 
       - name: Verify deployment
         run: |
-          kubectl rollout status deployment/cat-dogs-deployment -n mlops
+          echo "Waiting for rollout to complete..."
+          kubectl rollout status deployment/cat-dogs-deployment -n mlops --timeout=5m
+          
+          echo ""
+          echo "Deployment successful! Checking pods..."
           kubectl get pods -n mlops -l app=cat-dogs-classifier
-          kubectl get svc -n mlops
+          
+          echo ""
+          echo "Service details:"
+          kubectl get svc cat-dogs-service -n mlops
+          
+          echo ""
+          echo "HPA status:"
+          kubectl get hpa -n mlops
 
       - name: Run smoke tests
+        id: smoke-test
         run: |
           echo "Waiting for service to be ready..."
           sleep 30
+          
+          SERVICE_URL=$(kubectl get svc cat-dogs-service -n mlops -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          
+          if [ -n "$SERVICE_URL" ]; then
+            echo "Testing health endpoint at http://$SERVICE_URL:8000/health"
+            
+            # Retry health check up to 5 times
+            for i in {1..5}; do
+              if curl -f -s http://$SERVICE_URL:8000/health; then
+                echo ""
+                echo "✓ Health check passed!"
+                echo "service_url=http://$SERVICE_URL:8000" >> $GITHUB_OUTPUT
+                exit 0
+              else
+                echo "Attempt $i failed, retrying..."
+                sleep 10
+              fi
+            done
+            
+            echo "Health check failed after 5 attempts"
+            exit 1
+          else
+            echo "Warning: LoadBalancer URL not yet available. Checking service status..."
+            kubectl describe svc cat-dogs-service -n mlops
+            exit 1
+          fi
+      
+      - name: Get service URL
+        id: get-url
+        run: |
           SERVICE_URL=$(kubectl get svc cat-dogs-service -n mlops -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
           if [ -n "$SERVICE_URL" ]; then
-            curl -f http://$SERVICE_URL:8000/health || exit 1
-            echo "Deployment successful! Service is healthy."
+            echo "service_url=http://$SERVICE_URL:8000" >> $GITHUB_OUTPUT
           else
-            echo "Warning: LoadBalancer URL not yet available"
+            echo "service_url=pending" >> $GITHUB_OUTPUT
           fi
+      
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Deployment Summary 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${{ inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region:** us-east-1" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cluster:** mnist-classifier-cluster" >> $GITHUB_STEP_SUMMARY
+          echo "- **Namespace:** mlops" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`ghcr.io/aimlideas/mlops-assignment2/cats-dogs-classifier:${{ steps.image-tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          SERVICE_URL="${{ steps.get-url.outputs.service_url }}"
+          if [ "$SERVICE_URL" != "pending" ]; then
+            echo "### Service URL" >> $GITHUB_STEP_SUMMARY
+            echo "🌐 **API Endpoint:** $SERVICE_URL" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Test the API" >> $GITHUB_STEP_SUMMARY
+            echo '```bash' >> $GITHUB_STEP_SUMMARY
+            echo "# Health check" >> $GITHUB_STEP_SUMMARY
+            echo "curl $SERVICE_URL/health" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "# Test prediction (upload an image)" >> $GITHUB_STEP_SUMMARY
+            echo "curl -X POST -F 'file=@your-image.jpg' $SERVICE_URL/predict" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Service URL:** Pending (LoadBalancer provisioning)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### AWS Console Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [EKS Cluster](https://console.aws.amazon.com/eks/home?region=us-east-1#/clusters/mnist-classifier-cluster)" >> $GITHUB_STEP_SUMMARY
+          echo "- [CloudWatch Logs](https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#logs:)" >> $GITHUB_STEP_SUMMARY
