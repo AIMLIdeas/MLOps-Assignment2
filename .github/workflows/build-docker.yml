@@ -90,6 +90,10 @@ jobs:
             type=sha,format=short
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.source=https://github.com/AIMLIdeas/MLOps-Assignment2
+            org.opencontainers.image.description=Cat & Dogs Classifier API for MLOps Assignment
+            org.opencontainers.image.vendor=AIMLIdeas
 
       # Step 5: Build and push Docker image
       # Platform: linux/amd64 only (optimized for AWS EC2/EKS)
