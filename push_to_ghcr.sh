@@ -7,9 +7,9 @@
 # Set these before running: export GITHUB_USERNAME=xxx GITHUB_PAT=xxx
 GITHUB_USERNAME="${GITHUB_USERNAME:-AIMLIdeas}"
 GITHUB_PAT="${GITHUB_PAT}"
+NAMESPACE="aimlideas/mlops-assignment2"
 REPO="cats-dogs-classifier"
 TAG="latest"
-NAMESPACE="aimlideas"
 
 FULL_IMAGE="ghcr.io/$NAMESPACE/$REPO:$TAG"
 
