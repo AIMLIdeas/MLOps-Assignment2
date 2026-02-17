@@ -1,4 +1,5 @@
 # Multi-stage Dockerfile for Cat_Dogs Classifier API
+# Updated: 2026-02-17 - Deploy 20-epoch trained model
 
 # Stage 1: Build stage
 FROM python:3.9-slim as builder
