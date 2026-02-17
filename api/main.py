@@ -29,9 +29,9 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="MNIST Digit Classifier API",
-    description="REST API for MNIST digit classification with monitoring",
-    version="1.0.0"
+    title="Cat/Dogs Classifier API",
+    description="REST API for cats vs dogs image classification with monitoring",
+    version="2.0.0"
 )
 
 # Mount static files
@@ -89,7 +89,7 @@ class PredictionRequest(BaseModel):
 
 class PredictionResponse(BaseModel):
     """Response model for prediction endpoint"""
-    prediction: int = Field(..., description="Predicted digit (0-9)")
+    prediction: int = Field(..., description="Predicted class (0=CAT, 1=DOG)")
     probabilities: List[float] = Field(..., description="Probability for each class")
     confidence: float = Field(..., description="Confidence score of prediction")
     inference_time_ms: float = Field(..., description="Inference time in milliseconds")
@@ -310,11 +310,11 @@ async def model_info():
     try:
         # Get model architecture info if available
         model_details = {
-            "model_type": "Convolutional Neural Network (CNN)",
-            "version": "1.0.0",
-            "api_version": "1.0.0",
-            "input_size": "28x28 pixels",
-            "num_classes": "10 (digits 0-9)",
+            "model_type": "Convolutional Neural Network (CNN) - CatDogsCNN",
+            "version": "2.0.0",
+            "api_version": "2.0.0",
+            "input_size": "128x128 RGB pixels",
+            "num_classes": "2 (0=CAT, 1=DOG)",
             "framework": "PyTorch",
             "start_time": START_TIME.isoformat(),
             "uptime_seconds": (datetime.utcnow() - START_TIME).total_seconds(),
@@ -349,13 +349,13 @@ async def model_info():
         else:
             model_details["model_loaded"] = False
         
-        # Add placeholder metrics (you can replace with actual training metrics)
+        # Add cats/dogs model training metrics
         model_details.update({
-            "accuracy": "99.32%",
-            "epochs": "50",
-            "dataset": "MNIST",
-            "training_samples": "60,000",
-            "test_samples": "10,000"
+            "accuracy": "60.0%",
+            "epochs": "20",
+            "dataset": "Cats vs Dogs (CIFAR-10 subset)",
+            "training_samples": "800",
+            "test_samples": "200"
         })
         
         return model_details
@@ -373,13 +373,13 @@ class ImagePredictionRequest(BaseModel):
 @app.post("/predict-image", tags=["Prediction"])
 async def predict_image(request: ImagePredictionRequest):
     """
-    Predict digit from base64 encoded image (e.g., from canvas drawing)
+    Predict cat/dog from base64 encoded image
     
     Args:
         request: ImagePredictionRequest with base64 image
         
     Returns:
-        Prediction with confidence score
+        Prediction with confidence score (0=CAT, 1=DOG)
     """
     if model_inference is None or not model_inference.is_loaded():
         raise HTTPException(
@@ -392,17 +392,14 @@ async def predict_image(request: ImagePredictionRequest):
         image_data = base64.b64decode(request.image)
         image = Image.open(io.BytesIO(image_data))
         
-        # Convert to grayscale
-        image = image.convert('L')
+        # Convert to RGB (cats/dogs model expects RGB)
+        image = image.convert('RGB')
         
-        # Resize to 28x28
-        image = image.resize((28, 28), Image.Resampling.LANCZOS)
+        # Resize to 128x128 (cats/dogs model input size)
+        image = image.resize((128, 128), Image.Resampling.LANCZOS)
         
         # Convert to numpy array and normalize
         image_array = np.array(image, dtype=np.float32)
-        
-        # Invert colors (canvas is black on white, MNIST is white on black)
-        image_array = 255 - image_array
         
         # Normalize to [0, 1]
         image_array = image_array / 255.0
