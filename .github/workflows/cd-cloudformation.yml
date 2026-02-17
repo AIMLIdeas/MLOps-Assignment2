@@ -118,7 +118,14 @@ jobs:
         run: |
           echo "## AWS Credentials Verified ✓" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          aws sts get-caller-identity | tee -a $GITHUB_STEP_SUMMARY
+          aws sts get-caller-identity
+          
+          echo "## Deployment Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Action:** ${{ inputs.action || 'deploy-eks (default)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${{ inputs.environment || 'production (default)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Make deployment script executable
         run: chmod +x deployment/cloudformation/deploy-stacks.sh
@@ -126,7 +133,8 @@ jobs:
       - name: Set environment variables
         run: |
           echo "ENVIRONMENT=${{ inputs.environment || 'production' }}" >> $GITHUB_ENV
-          echo "ACTION=${{ inputs.action || 'deploy-all' }}" >> $GITHUB_ENV
+          echo "ACTION=${{ inputs.action || 'deploy-eks' }}" >> $GITHUB_ENV
+          echo "Deployment action: ${{ inputs.action || 'deploy-eks' }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Deploy VPC Stack
         if: env.ACTION == 'deploy-vpc' || env.ACTION == 'deploy-eks'
@@ -217,6 +225,12 @@ jobs:
             --region $AWS_REGION \
             --query 'Stacks[0].Outputs' \
             --output table | tee -a $GITHUB_STEP_SUMMARY
+
+      - name: Install kubectl
+        if: env.ACTION == 'deploy-eks'
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
 
       - name: Configure kubectl for EKS
         if: env.ACTION == 'deploy-eks'
