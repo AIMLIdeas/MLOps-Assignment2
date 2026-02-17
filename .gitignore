@@ -2,6 +2,7 @@
 *_credentials.csv
 *_accessKeys.csv
 scripts/create-eks-cluster-local.sh
+scripts/create-eks-awscli.sh
 
 # Python
 __pycache__/
