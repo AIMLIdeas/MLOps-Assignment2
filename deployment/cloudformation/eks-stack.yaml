@@ -1,0 +1,359 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'EKS Cluster for MNIST Classifier - Termination Protection DISABLED'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Cluster Configuration"
+        Parameters:
+          - ClusterName
+          - KubernetesVersion
+      - Label:
+          default: "Node Group Configuration"
+        Parameters:
+          - NodeInstanceType
+          - NodeGroupMinSize
+          - NodeGroupMaxSize
+          - NodeGroupDesiredSize
+      - Label:
+          default: "Network Configuration"
+        Parameters:
+          - VPCStackName
+      - Label:
+          default: "Tags"
+        Parameters:
+          - Environment
+          - Project
+
+Parameters:
+  Environment:
+    Description: Environment name
+    Type: String
+    Default: production
+    AllowedValues:
+      - production
+      - staging
+      - development
+
+  Project:
+    Description: Project name
+    Type: String
+    Default: mlops-mnist
+
+  ClusterName:
+    Description: EKS Cluster name
+    Type: String
+    Default: mlops-assignment2-cluster
+
+  KubernetesVersion:
+    Description: Kubernetes version
+    Type: String
+    Default: '1.28'
+    AllowedValues:
+      - '1.28'
+      - '1.27'
+      - '1.26'
+
+  NodeInstanceType:
+    Description: EC2 instance type for nodes
+    Type: String
+    Default: t3.medium
+    AllowedValues:
+      - t3.small
+      - t3.medium
+      - t3.large
+      - t3.xlarge
+
+  NodeGroupMinSize:
+    Description: Minimum number of nodes
+    Type: Number
+    Default: 2
+    MinValue: 1
+    MaxValue: 10
+
+  NodeGroupMaxSize:
+    Description: Maximum number of nodes
+    Type: Number
+    Default: 4
+    MinValue: 1
+    MaxValue: 20
+
+  NodeGroupDesiredSize:
+    Description: Desired number of nodes
+    Type: Number
+    Default: 2
+    MinValue: 1
+    MaxValue: 10
+
+  VPCStackName:
+    Description: Name of VPC stack (optional)
+    Type: String
+    Default: ''
+
+Conditions:
+  HasVPCStack: !Not [!Equals [!Ref VPCStackName, '']]
+  CreateVPC: !Equals [!Ref VPCStackName, '']
+
+Resources:
+  # VPC Resources (only if VPCStackName not provided)
+  VPC:
+    Type: AWS::EC2::VPC
+    Condition: CreateVPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-vpc'
+        - Key: !Sub 'kubernetes.io/cluster/${ClusterName}'
+          Value: shared
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Condition: CreateVPC
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-public-subnet-1'
+        - Key: !Sub 'kubernetes.io/cluster/${ClusterName}'
+          Value: shared
+        - Key: kubernetes.io/role/elb
+          Value: 1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Condition: CreateVPC
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-public-subnet-2'
+        - Key: !Sub 'kubernetes.io/cluster/${ClusterName}'
+          Value: shared
+        - Key: kubernetes.io/role/elb
+          Value: 1
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Condition: CreateVPC
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-igw'
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Condition: CreateVPC
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: CreateVPC
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-public-rt'
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Condition: CreateVPC
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: CreateVPC
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  SubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: CreateVPC
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # EKS Cluster IAM Role
+  EKSClusterRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ClusterName}-cluster-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: eks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+        - arn:aws:iam::aws:policy/AmazonEKSVPCResourceController
+      Tags:
+        - Key: Project
+          Value: !Ref Project
+        - Key: Environment
+          Value: !Ref Environment
+
+  # EKS Cluster Security Group
+  ClusterSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${ClusterName}-cluster-sg'
+      GroupDescription: Security group for EKS cluster
+      VpcId: !If
+        - HasVPCStack
+        - Fn::ImportValue: !Sub '${VPCStackName}-VPC-ID'
+        - !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: Allow HTTPS from anywhere
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-cluster-sg'
+        - Key: Project
+          Value: !Ref Project
+        - Key: TerminationProtection
+          Value: Disabled
+
+  # EKS Cluster
+  EKSCluster:
+    Type: AWS::EKS::Cluster
+    Properties:
+      Name: !Ref ClusterName
+      Version: !Ref KubernetesVersion
+      RoleArn: !GetAtt EKSClusterRole.Arn
+      ResourcesVpcConfig:
+        SecurityGroupIds:
+          - !Ref ClusterSecurityGroup
+        SubnetIds: !If
+          - HasVPCStack
+          - - Fn::ImportValue: !Sub '${VPCStackName}-PublicSubnet1-ID'
+            - Fn::ImportValue: !Sub '${VPCStackName}-PublicSubnet2-ID'
+          - - !Ref PublicSubnet1
+            - !Ref PublicSubnet2
+        EndpointPublicAccess: true
+        EndpointPrivateAccess: false
+      Logging:
+        ClusterLogging:
+          EnabledTypes:
+            - Type: api
+            - Type: audit
+            - Type: authenticator
+            - Type: controllerManager
+            - Type: scheduler
+      Tags:
+        - Key: Name
+          Value: !Ref ClusterName
+        - Key: Project
+          Value: !Ref Project
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: TerminationProtection
+          Value: Disabled
+
+  # Node Group IAM Role
+  NodeGroupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ClusterName}-nodegroup-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      Tags:
+        - Key: Project
+          Value: !Ref Project
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Node Group
+  NodeGroup:
+    Type: AWS::EKS::Nodegroup
+    DependsOn: EKSCluster
+    Properties:
+      ClusterName: !Ref ClusterName
+      NodegroupName: !Sub '${ClusterName}-nodegroup'
+      NodeRole: !GetAtt NodeGroupRole.Arn
+      Subnets: !If
+        - HasVPCStack
+        - - Fn::ImportValue: !Sub '${VPCStackName}-PublicSubnet1-ID'
+          - Fn::ImportValue: !Sub '${VPCStackName}-PublicSubnet2-ID'
+        - - !Ref PublicSubnet1
+          - !Ref PublicSubnet2
+      ScalingConfig:
+        MinSize: !Ref NodeGroupMinSize
+        MaxSize: !Ref NodeGroupMaxSize
+        DesiredSize: !Ref NodeGroupDesiredSize
+      InstanceTypes:
+        - !Ref NodeInstanceType
+      AmiType: AL2_x86_64
+      Tags:
+        Project: !Ref Project
+        Environment: !Ref Environment
+        TerminationProtection: Disabled
+
+Outputs:
+  ClusterName:
+    Description: EKS Cluster Name
+    Value: !Ref EKSCluster
+    Export:
+      Name: !Sub '${AWS::StackName}-ClusterName'
+
+  ClusterEndpoint:
+    Description: EKS Cluster Endpoint
+    Value: !GetAtt EKSCluster.Endpoint
+    Export:
+      Name: !Sub '${AWS::StackName}-ClusterEndpoint'
+
+  ClusterArn:
+    Description: EKS Cluster ARN
+    Value: !GetAtt EKSCluster.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ClusterArn'
+
+  ClusterSecurityGroupId:
+    Description: Security Group ID for the cluster
+    Value: !Ref ClusterSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupId'
+
+  NodeGroupName:
+    Description: Node Group Name
+    Value: !Ref NodeGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-NodeGroupName'
+
+  KubeconfigCommand:
+    Description: Command to update kubeconfig
+    Value: !Sub 'aws eks update-kubeconfig --region ${AWS::Region} --name ${ClusterName}'
+
+  TerminationProtection:
+    Description: Termination Protection Status
+    Value: 'DISABLED - Stack can be deleted without additional steps'

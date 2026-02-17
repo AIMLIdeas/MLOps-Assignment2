@@ -1,0 +1,378 @@
+name: CD - CloudFormation Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'deployment/cloudformation/**'
+      - '.github/workflows/cd-cloudformation.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'deployment/cloudformation/**'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Deployment action'
+        required: true
+        type: choice
+        options:
+          - deploy-all
+          - deploy-vpc
+          - deploy-ec2
+          - deploy-eks
+          - delete-stack
+          - disable-protection
+          - list-stacks
+        default: 'deploy-all'
+      stack_name:
+        description: 'Stack name (for delete action)'
+        required: false
+        type: string
+      environment:
+        description: 'Deployment environment'
+        required: false
+        type: choice
+        options:
+          - production
+          - staging
+          - development
+        default: 'production'
+
+env:
+  AWS_REGION: us-east-1
+  PROJECT_NAME: mlops-mnist
+
+jobs:
+  validate-templates:
+    name: Validate CloudFormation Templates
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Validate VPC template
+        run: |
+          if [ -f deployment/cloudformation/vpc-stack.yaml ]; then
+            echo "Validating VPC template..."
+            aws cloudformation validate-template \
+              --template-body file://deployment/cloudformation/vpc-stack.yaml \
+              --region ${{ env.AWS_REGION }}
+            echo "✓ VPC template is valid"
+          fi
+
+      - name: Validate EC2 template
+        run: |
+          if [ -f deployment/cloudformation/ec2-stack.yaml ]; then
+            echo "Validating EC2 template..."
+            aws cloudformation validate-template \
+              --template-body file://deployment/cloudformation/ec2-stack.yaml \
+              --region ${{ env.AWS_REGION }}
+            echo "✓ EC2 template is valid"
+          fi
+
+      - name: Validate EKS template
+        run: |
+          if [ -f deployment/cloudformation/eks-stack.yaml ]; then
+            echo "Validating EKS template..."
+            aws cloudformation validate-template \
+              --template-body file://deployment/cloudformation/eks-stack.yaml \
+              --region ${{ env.AWS_REGION }}
+            echo "✓ EKS template is valid"
+          fi
+
+      - name: Validation Summary
+        run: |
+          echo "## ✓ All CloudFormation templates validated successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All templates passed AWS CloudFormation validation." >> $GITHUB_STEP_SUMMARY
+
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    needs: validate-templates
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    environment:
+      name: ${{ inputs.environment || 'production' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS credentials
+        run: |
+          echo "## AWS Credentials Verified ✓" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          aws sts get-caller-identity | tee -a $GITHUB_STEP_SUMMARY
+
+      - name: Make deployment script executable
+        run: chmod +x deployment/cloudformation/deploy-stacks.sh
+
+      - name: Set environment variables
+        run: |
+          echo "ENVIRONMENT=${{ inputs.environment || 'production' }}" >> $GITHUB_ENV
+          echo "ACTION=${{ inputs.action || 'deploy-all' }}" >> $GITHUB_ENV
+
+      - name: Deploy VPC Stack
+        if: env.ACTION == 'deploy-all' || env.ACTION == 'deploy-vpc'
+        run: |
+          echo "## Deploying VPC Stack" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          STACK_NAME="${PROJECT_NAME}-vpc-${ENVIRONMENT}"
+          
+          aws cloudformation deploy \
+            --template-file deployment/cloudformation/vpc-stack.yaml \
+            --stack-name $STACK_NAME \
+            --capabilities CAPABILITY_IAM \
+            --no-disable-rollback \
+            --region $AWS_REGION \
+            --tags \
+              Project=$PROJECT_NAME \
+              Environment=$ENVIRONMENT \
+              ManagedBy=CloudFormation \
+              TerminationProtection=Disabled \
+            --parameter-overrides \
+              Environment=$ENVIRONMENT \
+              Project=$PROJECT_NAME
+          
+          # Explicitly disable termination protection
+          aws cloudformation update-termination-protection \
+            --stack-name $STACK_NAME \
+            --no-enable-termination-protection \
+            --region $AWS_REGION
+          
+          echo "✓ VPC Stack deployed with termination protection DISABLED" >> $GITHUB_STEP_SUMMARY
+          
+          # Get outputs
+          aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --region $AWS_REGION \
+            --query 'Stacks[0].Outputs' \
+            --output table | tee -a $GITHUB_STEP_SUMMARY
+
+      - name: Deploy EC2 Stack
+        if: env.ACTION == 'deploy-all' || env.ACTION == 'deploy-ec2'
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Deploying EC2 Stack" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          STACK_NAME="${PROJECT_NAME}-ec2-${ENVIRONMENT}"
+          VPC_STACK="${PROJECT_NAME}-vpc-${ENVIRONMENT}"
+          
+          # Check if VPC stack exists
+          if aws cloudformation describe-stacks --stack-name $VPC_STACK --region $AWS_REGION 2>/dev/null; then
+            VPC_PARAM="VPCStackName=$VPC_STACK"
+          else
+            VPC_PARAM="VPCStackName="
+          fi
+          
+          aws cloudformation deploy \
+            --template-file deployment/cloudformation/ec2-stack.yaml \
+            --stack-name $STACK_NAME \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-disable-rollback \
+            --region $AWS_REGION \
+            --tags \
+              Project=$PROJECT_NAME \
+              Environment=$ENVIRONMENT \
+              ManagedBy=CloudFormation \
+              TerminationProtection=Disabled \
+            --parameter-overrides \
+              Environment=$ENVIRONMENT \
+              Project=$PROJECT_NAME \
+              KeyName=${{ secrets.EC2_KEY_NAME || 'mlops-key' }} \
+              GitHubUsername=${{ github.repository_owner }} \
+              GitHubPAT=${{ secrets.GITHUB_TOKEN }} \
+              DockerImage=ghcr.io/${{ github.repository }}/cats-dogs-classifier:latest \
+              $VPC_PARAM
+          
+          # Explicitly disable termination protection
+          aws cloudformation update-termination-protection \
+            --stack-name $STACK_NAME \
+            --no-enable-termination-protection \
+            --region $AWS_REGION
+          
+          echo "✓ EC2 Stack deployed with termination protection DISABLED" >> $GITHUB_STEP_SUMMARY
+          
+          # Get outputs
+          aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --region $AWS_REGION \
+            --query 'Stacks[0].Outputs' \
+            --output table | tee -a $GITHUB_STEP_SUMMARY
+
+      - name: Deploy EKS Stack
+        if: env.ACTION == 'deploy-all' || env.ACTION == 'deploy-eks'
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Deploying EKS Stack" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Note:** EKS cluster creation takes 15-20 minutes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          STACK_NAME="${PROJECT_NAME}-eks-${ENVIRONMENT}"
+          VPC_STACK="${PROJECT_NAME}-vpc-${ENVIRONMENT}"
+          
+          # Check if VPC stack exists
+          if aws cloudformation describe-stacks --stack-name $VPC_STACK --region $AWS_REGION 2>/dev/null; then
+            VPC_PARAM="VPCStackName=$VPC_STACK"
+          else
+            VPC_PARAM="VPCStackName="
+          fi
+          
+          aws cloudformation deploy \
+            --template-file deployment/cloudformation/eks-stack.yaml \
+            --stack-name $STACK_NAME \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-disable-rollback \
+            --region $AWS_REGION \
+            --tags \
+              Project=$PROJECT_NAME \
+              Environment=$ENVIRONMENT \
+              ManagedBy=CloudFormation \
+              TerminationProtection=Disabled \
+            --parameter-overrides \
+              Environment=$ENVIRONMENT \
+              Project=$PROJECT_NAME \
+              ClusterName=mlops-assignment2-cluster \
+              $VPC_PARAM
+          
+          # Explicitly disable termination protection
+          aws cloudformation update-termination-protection \
+            --stack-name $STACK_NAME \
+            --no-enable-termination-protection \
+            --region $AWS_REGION
+          
+          echo "✓ EKS Stack deployed with termination protection DISABLED" >> $GITHUB_STEP_SUMMARY
+          
+          # Get outputs
+          aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --region $AWS_REGION \
+            --query 'Stacks[0].Outputs' \
+            --output table | tee -a $GITHUB_STEP_SUMMARY
+
+      - name: Delete Stack
+        if: env.ACTION == 'delete-stack' && inputs.stack_name != ''
+        run: |
+          echo "## Deleting Stack: ${{ inputs.stack_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Disable termination protection first
+          aws cloudformation update-termination-protection \
+            --stack-name ${{ inputs.stack_name }} \
+            --no-enable-termination-protection \
+            --region $AWS_REGION || true
+          
+          # Delete the stack
+          aws cloudformation delete-stack \
+            --stack-name ${{ inputs.stack_name }} \
+            --region $AWS_REGION
+          
+          echo "Stack deletion initiated for: ${{ inputs.stack_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ This operation may take several minutes" >> $GITHUB_STEP_SUMMARY
+
+      - name: Disable Termination Protection
+        if: env.ACTION == 'disable-protection'
+        run: |
+          echo "## Disabling Termination Protection" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get all stacks with project tag
+          STACKS=$(aws cloudformation describe-stacks \
+            --region $AWS_REGION \
+            --query "Stacks[?Tags[?Key=='Project' && Value=='${PROJECT_NAME}']].StackName" \
+            --output text)
+          
+          for STACK in $STACKS; do
+            echo "Disabling termination protection for: $STACK"
+            aws cloudformation update-termination-protection \
+              --stack-name $STACK \
+              --no-enable-termination-protection \
+              --region $AWS_REGION || true
+            echo "✓ $STACK" >> $GITHUB_STEP_SUMMARY
+          done
+
+      - name: List Stacks
+        if: env.ACTION == 'list-stacks' || env.ACTION == 'disable-protection'
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## CloudFormation Stacks Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          aws cloudformation describe-stacks \
+            --region $AWS_REGION \
+            --query "Stacks[?Tags[?Key=='Project' && Value=='${PROJECT_NAME}']].[StackName,StackStatus,EnableTerminationProtection]" \
+            --output table | tee -a $GITHUB_STEP_SUMMARY
+
+      - name: Verify Termination Protection Disabled
+        if: env.ACTION != 'delete-stack' && env.ACTION != 'list-stacks'
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Termination Protection Verification" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          STACKS=$(aws cloudformation describe-stacks \
+            --region $AWS_REGION \
+            --query "Stacks[?Tags[?Key=='Project' && Value=='${PROJECT_NAME}']].StackName" \
+            --output text)
+          
+          ALL_DISABLED=true
+          for STACK in $STACKS; do
+            PROTECTION=$(aws cloudformation describe-stacks \
+              --stack-name $STACK \
+              --region $AWS_REGION \
+              --query 'Stacks[0].EnableTerminationProtection' \
+              --output text)
+            
+            if [ "$PROTECTION" == "False" ]; then
+              echo "✓ $STACK: Termination protection DISABLED" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ $STACK: Termination protection ENABLED" >> $GITHUB_STEP_SUMMARY
+              ALL_DISABLED=false
+            fi
+          done
+          
+          if [ "$ALL_DISABLED" == "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **All stacks have termination protection DISABLED**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Warning: Some stacks still have termination protection enabled**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Action:** ${{ env.ACTION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Project:** ${{ env.PROJECT_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Termination Protection:** DISABLED for all stacks" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### AWS Console" >> $GITHUB_STEP_SUMMARY
+          echo "- [CloudFormation Stacks](https://console.aws.amazon.com/cloudformation/home?region=${{ env.AWS_REGION }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [EC2 Instances](https://console.aws.amazon.com/ec2/home?region=${{ env.AWS_REGION }}#Instances:)" >> $GITHUB_STEP_SUMMARY
+          echo "- [EKS Clusters](https://console.aws.amazon.com/eks/home?region=${{ env.AWS_REGION }}#/clusters)" >> $GITHUB_STEP_SUMMARY
