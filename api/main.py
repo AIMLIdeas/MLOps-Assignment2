@@ -1,6 +1,6 @@
 """
 FastAPI Inference Service with Monitoring
-Provides REST API for MNIST digit classification
+Provides REST API for cats vs dogs image classification
 """
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import List, Optional, Union
 import os
 import base64
+import binascii
 import io
 from PIL import Image
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -388,35 +389,143 @@ async def predict_image(request: ImagePredictionRequest):
         )
     
     try:
+        # Validate input
+        if not request.image or not request.image.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Image data is empty or missing"
+            )
+        
         # Decode base64 image
-        image_data = base64.b64decode(request.image)
-        image = Image.open(io.BytesIO(image_data))
+        try:
+            # Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
+            image_data_str = request.image
+            if ',' in image_data_str and 'base64' in image_data_str:
+                image_data_str = image_data_str.split(',', 1)[1]
+            
+            image_data = base64.b64decode(image_data_str, validate=True)
+            
+            if len(image_data) == 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Decoded image data is empty"
+                )
+            
+            # Check for reasonable size limit (10 MB)
+            if len(image_data) > 10 * 1024 * 1024:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Image is too large. Maximum size is 10 MB"
+                )
+                
+        except binascii.Error as e:
+            logger.error(f"Base64 decode error: {str(e)}")
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid base64 image data. Please ensure the image is properly encoded."
+            )
+        
+        # Open and validate image
+        try:
+            image = Image.open(io.BytesIO(image_data))
+            
+            # Verify it's a valid image format
+            image.verify()
+            
+            # Reopen image after verify (verify() closes the file)
+            image = Image.open(io.BytesIO(image_data))
+            
+            # Check image has dimensions
+            if image.width == 0 or image.height == 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Image has invalid dimensions"
+                )
+                
+        except Exception as e:
+            logger.error(f"Image open/validation error: {str(e)}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid or corrupted image file. Supported formats: JPEG, PNG, BMP, GIF. Error: {str(e)}"
+            )
         
         # Convert to RGB (cats/dogs model expects RGB)
-        image = image.convert('RGB')
+        try:
+            image = image.convert('RGB')
+        except Exception as e:
+            logger.error(f"RGB conversion error: {str(e)}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to convert image to RGB format: {str(e)}"
+            )
         
         # Resize to 128x128 (cats/dogs model input size)
-        image = image.resize((128, 128), Image.Resampling.LANCZOS)
+        try:
+            image = image.resize((128, 128), Image.Resampling.LANCZOS)
+        except Exception as e:
+            logger.error(f"Image resize error: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to resize image: {str(e)}"
+            )
         
         # Convert to numpy array and normalize
-        image_array = np.array(image, dtype=np.float32)
-        
-        # Normalize to [0, 1]
-        image_array = image_array / 255.0
+        try:
+            image_array = np.array(image, dtype=np.float32)
+            
+            # Validate array shape
+            if image_array.shape != (128, 128, 3):
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Unexpected image array shape: {image_array.shape}. Expected (128, 128, 3)"
+                )
+            
+            # Normalize to [0, 1]
+            image_array = image_array / 255.0
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Array conversion error: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to process image array: {str(e)}"
+            )
         
         # Time inference
         start_time = time.time()
         
         # Make prediction
-        result = model_inference.predict(image_array)
+        try:
+            result = model_inference.predict(image_array)
+            
+            # Validate prediction result
+            if not isinstance(result, dict) or 'prediction' not in result:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Model returned invalid prediction format"
+                )
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Model prediction error: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Model prediction failed: {str(e)}"
+            )
         
         # Calculate inference time
         inference_time_ms = (time.time() - start_time) * 1000
         
         # Record prediction metric
-        PREDICTION_COUNT.labels(
-            predicted_class=str(result['prediction'])
-        ).inc()
+        try:
+            PREDICTION_COUNT.labels(
+                predicted_class=str(result['prediction'])
+            ).inc()
+        except Exception as e:
+            # Don't fail the request if metrics recording fails
+            logger.warning(f"Failed to record prediction metric: {str(e)}")
         
         logger.info(
             f"Image prediction: {result['prediction']} - "
@@ -430,9 +539,16 @@ async def predict_image(request: ImagePredictionRequest):
             "inference_time_ms": inference_time_ms
         }
         
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is
+        raise
     except Exception as e:
-        logger.error(f"Image prediction failed: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+        # Catch any unexpected errors
+        logger.error(f"Unexpected error in image prediction: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500, 
+            detail=f"An unexpected error occurred during prediction. Please try again or contact support if the issue persists."
+        )
 
 
 def log_prediction_to_file(prediction: int, confidence: float, inference_time_ms: float):
