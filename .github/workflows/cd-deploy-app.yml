@@ -79,6 +79,23 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✓ kubectl configured successfully" >> $GITHUB_STEP_SUMMARY
 
+      - name: Create GHCR Pull Secret
+        run: |
+          echo "🔐 Creating GHCR pull secret..."
+          
+          # Delete existing secret if it exists
+          kubectl delete secret ghcr-secret -n mlops --ignore-not-found=true
+          
+          # Create pull secret for GHCR
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.repository_owner }} \
+            --docker-password=${{ secrets.GITHUB_TOKEN }} \
+            --docker-email=${{ github.actor }}@users.noreply.github.com \
+            --namespace=mlops
+          
+          echo "✓ GHCR pull secret created" >> $GITHUB_STEP_SUMMARY
+
       - name: Deploy Application to EKS
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -110,8 +127,33 @@ jobs:
           echo "## Deployment Status" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          echo "⏳ Waiting for deployment to be ready..."
-          kubectl rollout status deployment/cat-dogs-deployment -n mlops --timeout=5m
+          echo "⏳ Waiting for deployment to be ready (timeout: 10 minutes)..."
+          
+          # Wait for rollout with better timeout
+          if kubectl rollout status deployment/cat-dogs-deployment -n mlops --timeout=10m; then
+            echo "✅ Deployment successful" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Deployment failed or timed out" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Debug Information" >> $GITHUB_STEP_SUMMARY
+            
+            echo "#### Pod Status:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            kubectl get pods -n mlops -l app=cat-dogs-classifier -o wide >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            
+            echo "#### Pod Events:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            kubectl get events -n mlops --sort-by='.lastTimestamp' | grep cat-dogs >> $GITHUB_STEP_SUMMARY || echo "No events found" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            
+            echo "#### Pod Logs:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            kubectl logs -l app=cat-dogs-classifier -n mlops --tail=100 >> $GITHUB_STEP_SUMMARY || echo "No logs available" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            
+            exit 1
+          fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Pods Status" >> $GITHUB_STEP_SUMMARY

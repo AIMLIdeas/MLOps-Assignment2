@@ -24,6 +24,8 @@ spec:
         app: cat-dogs-classifier
         version: v1
     spec:
+      imagePullSecrets:
+      - name: ghcr-secret
       containers:
       - name: cat-dogs-api
         image: ghcr.io/aimlideas/mlops-assignment2/cats-dogs-classifier:latest
