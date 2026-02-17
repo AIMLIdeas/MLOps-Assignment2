@@ -87,9 +87,9 @@ def download_kaggle_cats_dogs_sample():
     return data_dir
 
 
-def train_quick_model():
+def train_quick_model(epochs=10):
     """
-    Train a cats-dogs model with minimal epochs for quick deployment
+    Train a cats-dogs model with configurable epochs
     """
     print("\n" + "="*70)
     print("Training Cats-Dogs Classifier")
@@ -102,10 +102,10 @@ def train_quick_model():
     else:
         print(f"Using existing data at {data_dir}")
     
-    # Train model with fewer epochs for quick deployment
+    # Train model with specified epochs
     print("\nStarting training...")
     model, accuracy = train_model(
-        epochs=10,  # Quick training
+        epochs=epochs,
         batch_size=32,
         learning_rate=0.001,
         experiment_name="cat_dogs_quick_deploy",
@@ -159,7 +159,7 @@ if __name__ == "__main__":
         print("\n✓ Data download complete!")
     else:
         # Full training pipeline
-        model, accuracy = train_quick_model()
+        model, accuracy = train_quick_model(epochs=args.epochs)
         
         # Verify the model
         if verify_model():
