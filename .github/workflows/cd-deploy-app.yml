@@ -1,0 +1,178 @@
+name: CD - Deploy Application to EKS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'api/**'
+      - 'deployment/kubernetes/**'
+      - '.github/workflows/cd-deploy-app.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: false
+        type: choice
+        options:
+          - production
+          - staging
+          - development
+        default: 'production'
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: mlops-assignment2-cluster
+
+jobs:
+  deploy-application:
+    name: Deploy Application to EKS
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment || 'production' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS credentials
+        run: |
+          echo "## AWS Credentials Verified ✓" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          aws sts get-caller-identity
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Deployment Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cluster:** ${{ env.EKS_CLUSTER_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${{ inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubectl for EKS
+        run: |
+          echo "## Configuring kubectl for EKS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Update kubeconfig
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.EKS_CLUSTER_NAME }}
+          
+          # Verify connection
+          echo "### Cluster Info" >> $GITHUB_STEP_SUMMARY
+          kubectl version --client
+          kubectl cluster-info
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✓ kubectl configured successfully" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deploy Application to EKS
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Deploying Application" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Apply Kubernetes manifests in order
+          echo "📦 Applying namespace..."
+          kubectl apply -f deployment/kubernetes/namespace.yaml
+          
+          echo "⚙️  Applying configmap..."
+          kubectl apply -f deployment/kubernetes/configmap.yaml
+          
+          echo "🚀 Applying deployment..."
+          kubectl apply -f deployment/kubernetes/deployment.yaml
+          
+          echo "🌐 Applying service..."
+          kubectl apply -f deployment/kubernetes/service.yaml
+          
+          echo "📈 Applying HPA..."
+          kubectl apply -f deployment/kubernetes/hpa.yaml
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✓ All application manifests deployed" >> $GITHUB_STEP_SUMMARY
+
+      - name: Wait for Deployment
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "⏳ Waiting for deployment to be ready..."
+          kubectl rollout status deployment/cat-dogs-deployment -n mlops --timeout=5m
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pods Status" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n mlops -l app=cat-dogs-classifier -o wide >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Get Service Details
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Service Information" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Service Status" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl get svc cat-dogs-service -n mlops >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Get LoadBalancer URL
+        id: get-url
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Application URL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "⏳ Waiting for LoadBalancer to be provisioned..."
+          sleep 30
+          
+          SERVICE_URL=$(kubectl get svc cat-dogs-service -n mlops -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+          
+          if [ -n "$SERVICE_URL" ]; then
+            echo "### 🎉 Application is accessible at:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**http://$SERVICE_URL**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "service_url=http://$SERVICE_URL" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ LoadBalancer URL not yet available. Run this to check later:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+            echo "kubectl get svc cat-dogs-service -n mlops" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Display Deployment Summary
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Deployment Complete ✓" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Quick Commands" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Check pods" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl get pods -n mlops" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Check service" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl get svc -n mlops" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# View logs" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl logs -l app=cat-dogs-classifier -n mlops --tail=50" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Get URL" >> $GITHUB_STEP_SUMMARY
+          echo "kubectl get svc cat-dogs-service -n mlops -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
