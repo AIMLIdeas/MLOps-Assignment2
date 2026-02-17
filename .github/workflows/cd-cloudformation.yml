@@ -218,6 +218,86 @@ jobs:
             --query 'Stacks[0].Outputs' \
             --output table | tee -a $GITHUB_STEP_SUMMARY
 
+      - name: Configure kubectl for EKS
+        if: env.ACTION == 'deploy-eks'
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Configuring kubectl for EKS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Update kubeconfig
+          aws eks update-kubeconfig \
+            --region $AWS_REGION \
+            --name mlops-assignment2-cluster
+          
+          # Verify connection
+          kubectl version --client
+          kubectl cluster-info
+          
+          echo "✓ kubectl configured successfully" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deploy Application to EKS
+        if: env.ACTION == 'deploy-eks'
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Deploying Application to EKS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Apply Kubernetes manifests in order
+          echo "Applying namespace..."
+          kubectl apply -f deployment/kubernetes/namespace.yaml
+          
+          echo "Applying configmap..."
+          kubectl apply -f deployment/kubernetes/configmap.yaml
+          
+          echo "Applying deployment..."
+          kubectl apply -f deployment/kubernetes/deployment.yaml
+          
+          echo "Applying service..."
+          kubectl apply -f deployment/kubernetes/service.yaml
+          
+          echo "Applying HPA..."
+          kubectl apply -f deployment/kubernetes/hpa.yaml
+          
+          echo "✓ Application manifests deployed" >> $GITHUB_STEP_SUMMARY
+
+      - name: Wait for Deployment
+        if: env.ACTION == 'deploy-eks'
+        run: |
+          echo "Waiting for deployment to be ready..."
+          kubectl rollout status deployment/cat-dogs-deployment -n mlops --timeout=5m
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment Status" >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n mlops -l app=cat-dogs-classifier -o wide >> $GITHUB_STEP_SUMMARY
+
+      - name: Get Service URL
+        if: env.ACTION == 'deploy-eks'
+        id: get-service-url
+        run: |
+          echo "Waiting for LoadBalancer to be provisioned..."
+          sleep 30
+          
+          SERVICE_URL=$(kubectl get svc cat-dogs-service -n mlops -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "pending")
+          
+          if [ "$SERVICE_URL" != "pending" ] && [ -n "$SERVICE_URL" ]; then
+            echo "service_url=http://$SERVICE_URL" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🌐 Application URL" >> $GITHUB_STEP_SUMMARY
+            echo "**Service URL:** http://$SERVICE_URL" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```bash' >> $GITHUB_STEP_SUMMARY
+            echo "# Health check" >> $GITHUB_STEP_SUMMARY
+            echo "curl http://$SERVICE_URL/health" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "# Test prediction" >> $GITHUB_STEP_SUMMARY
+            echo "curl -X POST -F 'file=@image.jpg' http://$SERVICE_URL/predict" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "service_url=pending" >> $GITHUB_OUTPUT
+            echo "⚠️ LoadBalancer URL not yet available. Check AWS Console." >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Delete Stack
         if: env.ACTION == 'delete-stack' && inputs.stack_name != ''
         run: |
@@ -311,7 +391,7 @@ jobs:
         if: always()
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Action:** ${{ env.ACTION }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
@@ -319,7 +399,19 @@ jobs:
           echo "- **Project:** ${{ env.PROJECT_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Termination Protection:** DISABLED for all stacks" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### AWS Console" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Deployment Architecture" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Infrastructure Layer** (CloudFormation)" >> $GITHUB_STEP_SUMMARY
+          echo "   - VPC with multi-AZ subnets" >> $GITHUB_STEP_SUMMARY
+          echo "   - EKS Kubernetes cluster (v1.28)" >> $GITHUB_STEP_SUMMARY
+          echo "   - Node group with auto-scaling" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Application Layer** (Kubernetes)" >> $GITHUB_STEP_SUMMARY
+          echo "   - Cat/Dogs classifier deployment" >> $GITHUB_STEP_SUMMARY
+          echo "   - LoadBalancer service" >> $GITHUB_STEP_SUMMARY
+          echo "   - Horizontal Pod Autoscaler" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 AWS Console Links" >> $GITHUB_STEP_SUMMARY
           echo "- [CloudFormation Stacks](https://console.aws.amazon.com/cloudformation/home?region=${{ env.AWS_REGION }})" >> $GITHUB_STEP_SUMMARY
-          echo "- [EC2 Instances](https://console.aws.amazon.com/ec2/home?region=${{ env.AWS_REGION }}#Instances:)" >> $GITHUB_STEP_SUMMARY
           echo "- [EKS Clusters](https://console.aws.amazon.com/eks/home?region=${{ env.AWS_REGION }}#/clusters)" >> $GITHUB_STEP_SUMMARY
+          echo "- [EC2 Load Balancers](https://console.aws.amazon.com/ec2/home?region=${{ env.AWS_REGION }}#LoadBalancers:)" >> $GITHUB_STEP_SUMMARY
+          echo "- [CloudWatch Logs](https://console.aws.amazon.com/cloudwatch/home?region=${{ env.AWS_REGION }}#logs:)" >> $GITHUB_STEP_SUMMARY

@@ -10,7 +10,7 @@ kind: ClusterConfig
 metadata:
   name: mlops-assignment2-cluster
   region: us-east-1
-  version: "1.34"
+  version: "1.28"
 
 # IAM settings
 iam:
