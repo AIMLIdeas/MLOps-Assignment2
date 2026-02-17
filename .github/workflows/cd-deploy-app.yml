@@ -94,15 +94,15 @@ jobs:
           # Delete existing secret if it exists
           kubectl delete secret ghcr-secret -n mlops --ignore-not-found=true
           
-          # Create pull secret for GHCR
+          # Create pull secret for GHCR with PAT token (has proper GHCR permissions)
           kubectl create secret docker-registry ghcr-secret \
             --docker-server=ghcr.io \
             --docker-username=${{ github.repository_owner }} \
-            --docker-password=${{ secrets.GITHUB_TOKEN }} \
+            --docker-password=${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }} \
             --docker-email=${{ github.actor }}@users.noreply.github.com \
             --namespace=mlops
           
-          echo "✓ GHCR pull secret created" >> $GITHUB_STEP_SUMMARY
+          echo "✓ GHCR pull secret created with PAT token" >> $GITHUB_STEP_SUMMARY
 
       - name: Deploy Application to EKS
         run: |
@@ -128,6 +128,35 @@ jobs:
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✓ All application manifests deployed" >> $GITHUB_STEP_SUMMARY
+
+      - name: Force Rollout with Latest Image
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Forcing Pod Update" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "🔄 Forcing rollout restart to pull latest image..."
+          
+          # First, check current pod status
+          echo "### Current Pods (before restart):" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n mlops -l app=cat-dogs-classifier -o wide >> $GITHUB_STEP_SUMMARY || echo "No pods found" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          
+          # Force rollout restart - gracefully terminates old pods and creates new ones
+          kubectl rollout restart deployment/cat-dogs-deployment -n mlops
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✓ Rollout restart initiated - old pods will gracefully terminate" >> $GITHUB_STEP_SUMMARY
+          
+          # Wait a moment for pods to start terminating
+          sleep 5
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pods (during restart):" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n mlops -l app=cat-dogs-classifier -o wide >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Wait for Deployment
         run: |
@@ -167,6 +196,17 @@ jobs:
           echo "### Pods Status" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           kubectl get pods -n mlops -l app=cat-dogs-classifier -o wide >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Container Image Info" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          POD_NAME=$(kubectl get pods -n mlops -l app=cat-dogs-classifier -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+          if [ -n "$POD_NAME" ]; then
+            echo "Pod: $POD_NAME" >> $GITHUB_STEP_SUMMARY
+            kubectl get pod $POD_NAME -n mlops -o jsonpath='{.status.containerStatuses[0].imageID}' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Get Service Details
