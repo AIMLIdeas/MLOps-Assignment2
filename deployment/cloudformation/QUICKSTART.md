@@ -2,15 +2,10 @@
 
 ## 🚀 Quick Commands
 
-### Deploy EKS (Primary - Application runs here)
+### Deploy EKS (Application Platform)
 ```bash
 cd deployment/cloudformation
 ./deploy-stacks.sh deploy  # Deploys VPC + EKS
-```
-
-### Deploy EC2 (Optional)
-```bash
-./deploy-stacks.sh deploy-ec2  # Optional EC2 instance
 ```
 
 ### Check Stack Status
@@ -30,9 +25,8 @@ cd deployment/cloudformation
 |------------|----------|---------|--------|
 | `mlops-mnist-vpc-production` | `vpc-stack.yaml` | Network infrastructure | Required |
 | `mlops-mnist-eks-production` | `eks-stack.yaml` | Kubernetes cluster | **Primary** |
-| `mlops-mnist-ec2-production` | `ec2-stack.yaml` | EC2 instance with Docker | Optional |
 
-> **Note:** Application is deployed on EKS. EC2 is optional for testing only.
+> **Note:** Application is deployed on EKS Kubernetes cluster.
 
 ## ✅ Termination Protection Status
 
@@ -87,14 +81,12 @@ Expected output:
 ### Available Actions
 
 - `deploy-eks` - **Default** - Deploy VPC + EKS (application platform)
-- `deploy-all` - Deploy all infrastructure including EC2
 - `deploy-vpc` - VPC only
-- `deploy-ec2` - EC2 only (optional)  
 - `delete-stack` - Delete specific stack
 - `disable-protection` - Disable protection for all
 - `list-stacks` - List all stacks
 
-> **Primary deployment:** Use `deploy-eks` as the application runs on EKS
+> **Primary deployment:** Application runs on EKS Kubernetes cluster
 
 ## 📋 Prerequisites Checklist
 

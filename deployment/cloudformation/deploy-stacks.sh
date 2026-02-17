@@ -408,16 +408,15 @@ main() {
             ;;
             
         *)
-            echo "Usage: $0 {deploy|deploy-ec2|delete <stack-name>|disable-protection|list}"
+            echo "Usage: $0 {deploy|delete <stack-name>|disable-protection|list}"
             echo ""
             echo "Commands:"
-            echo "  deploy              - Deploy VPC + EKS stacks (primary deployment for application)"
-            echo "  deploy-ec2          - Deploy EC2 stack (optional - application runs on EKS)"
+            echo "  deploy              - Deploy VPC + EKS stacks (application runs on EKS)"
             echo "  delete <stack-name> - Delete a specific stack"
             echo "  disable-protection  - Disable termination protection for all project stacks"
             echo "  list                - List all stacks with termination protection status"
             echo ""
-            echo "Note: This application is deployed on EKS. EC2 deployment is optional."
+            echo "Note: Application is deployed on EKS Kubernetes cluster."
             exit 1
             ;;
     esac

@@ -20,9 +20,7 @@ on:
         type: choice
         options:
           - deploy-eks
-          - deploy-all
           - deploy-vpc
-          - deploy-ec2
           - delete-stack
           - disable-protection
           - list-stacks
@@ -131,7 +129,7 @@ jobs:
           echo "ACTION=${{ inputs.action || 'deploy-all' }}" >> $GITHUB_ENV
 
       - name: Deploy VPC Stack
-        if: env.ACTION == 'deploy-all' || env.ACTION == 'deploy-vpc' || env.ACTION == 'deploy-eks'
+        if: env.ACTION == 'deploy-vpc' || env.ACTION == 'deploy-eks'
         run: |
           echo "## Deploying VPC Stack" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -168,62 +166,8 @@ jobs:
             --query 'Stacks[0].Outputs' \
             --output table | tee -a $GITHUB_STEP_SUMMARY
 
-      - name: Deploy EC2 Stack
-        if: env.ACTION == 'deploy-all' || env.ACTION == 'deploy-ec2'
-        run: |
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Deploying EC2 Stack (Optional)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "ℹ️ **Note:** Application runs on EKS. EC2 is optional for testing." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          STACK_NAME="${PROJECT_NAME}-ec2-${ENVIRONMENT}"
-          VPC_STACK="${PROJECT_NAME}-vpc-${ENVIRONMENT}"
-          
-          # Check if VPC stack exists
-          if aws cloudformation describe-stacks --stack-name $VPC_STACK --region $AWS_REGION 2>/dev/null; then
-            VPC_PARAM="VPCStackName=$VPC_STACK"
-          else
-            VPC_PARAM="VPCStackName="
-          fi
-          
-          aws cloudformation deploy \
-            --template-file deployment/cloudformation/ec2-stack.yaml \
-            --stack-name $STACK_NAME \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --no-disable-rollback \
-            --region $AWS_REGION \
-            --tags \
-              Project=$PROJECT_NAME \
-              Environment=$ENVIRONMENT \
-              ManagedBy=CloudFormation \
-              TerminationProtection=Disabled \
-            --parameter-overrides \
-              Environment=$ENVIRONMENT \
-              Project=$PROJECT_NAME \
-              KeyName=${{ secrets.EC2_KEY_NAME || 'mlops-key' }} \
-              GitHubUsername=${{ github.repository_owner }} \
-              GitHubPAT=${{ secrets.GITHUB_TOKEN }} \
-              DockerImage=ghcr.io/${{ github.repository }}/cats-dogs-classifier:latest \
-              $VPC_PARAM
-          
-          # Explicitly disable termination protection
-          aws cloudformation update-termination-protection \
-            --stack-name $STACK_NAME \
-            --no-enable-termination-protection \
-            --region $AWS_REGION
-          
-          echo "✓ EC2 Stack deployed with termination protection DISABLED" >> $GITHUB_STEP_SUMMARY
-          
-          # Get outputs
-          aws cloudformation describe-stacks \
-            --stack-name $STACK_NAME \
-            --region $AWS_REGION \
-            --query 'Stacks[0].Outputs' \
-            --output table | tee -a $GITHUB_STEP_SUMMARY
-
       - name: Deploy EKS Stack
-        if: env.ACTION == 'deploy-all' || env.ACTION == 'deploy-eks'
+        if: env.ACTION == 'deploy-eks'
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Deploying EKS Stack (Primary Application Platform)" >> $GITHUB_STEP_SUMMARY
