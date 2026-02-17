@@ -34,7 +34,7 @@ NODE_TYPE="${3:-t3.medium}"
 MIN_NODES="${4:-2}"
 MAX_NODES="${5:-4}"
 DESIRED_NODES="${6:-2}"
-K8S_VERSION="1.28"
+K8S_VERSION="1.31"
 
 echo -e "${BLUE}================================================${NC}"
 echo -e "${BLUE}  EKS Cluster Creation Script${NC}"

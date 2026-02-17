@@ -23,7 +23,7 @@ This directory contains scripts to create and manage EKS clusters using AWS CLI 
 
 **What it does:**
 - ✅ Creates VPC with public/private subnets
-- ✅ Creates EKS cluster (Kubernetes 1.28)
+- ✅ Creates EKS cluster (Kubernetes 1.31)
 - ✅ Creates managed node group (2-4 t3.medium instances)
 - ✅ Configures kubectl automatically
 - ✅ Enables OIDC provider for IAM roles
@@ -255,7 +255,7 @@ Both scripts create a cluster with these defaults:
 |---------|-------|
 | **Cluster Name** | mlops-assignment2-cluster |
 | **Region** | us-east-1 |
-| **Kubernetes Version** | 1.28 |
+| **Kubernetes Version** | 1.31 |
 | **Node Type** | t3.medium (2 vCPU, 4GB RAM) |
 | **Min Nodes** | 2 |
 | **Max Nodes** | 4 |
