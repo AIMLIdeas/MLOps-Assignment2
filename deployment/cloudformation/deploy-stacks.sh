@@ -355,7 +355,34 @@ main() {
                     "CAPABILITY_IAM"
             fi
             
-            log_success "All stacks deployed successfully!"
+            log_success "EKS deployment completed successfully!"
+            list_all_stacks
+            ;;
+            
+        deploy-ec2)
+            log_info "Deploying EC2 stack (optional - application runs on EKS)..."
+            
+            # Deploy VPC first if it doesn't exist
+            if [ -f "$SCRIPT_DIR/vpc-stack.yaml" ]; then
+                if ! aws cloudformation describe-stacks --stack-name "${PROJECT_NAME}-vpc-${ENVIRONMENT}" --region "$REGION" 2>/dev/null; then
+                    deploy_stack \
+                        "${PROJECT_NAME}-vpc-${ENVIRONMENT}" \
+                        "$SCRIPT_DIR/vpc-stack.yaml" \
+                        "" \
+                        "CAPABILITY_IAM"
+                fi
+            fi
+            
+            # Deploy EC2 stack
+            if [ -f "$SCRIPT_DIR/ec2-stack.yaml" ]; then
+                deploy_stack \
+                    "${PROJECT_NAME}-ec2-${ENVIRONMENT}" \
+                    "$SCRIPT_DIR/ec2-stack.yaml" \
+                    "$SCRIPT_DIR/ec2-parameters.json" \
+                    "CAPABILITY_IAM"
+            fi
+            
+            log_success "EC2 stack deployed successfully!"
             list_all_stacks
             ;;
             
@@ -381,13 +408,16 @@ main() {
             ;;
             
         *)
-            echo "Usage: $0 {deploy|delete <stack-name>|disable-protection|list}"
+            echo "Usage: $0 {deploy|deploy-ec2|delete <stack-name>|disable-protection|list}"
             echo ""
             echo "Commands:"
-            echo "  deploy              - Deploy all CloudFormation stacks (termination protection DISABLED)"
+            echo "  deploy              - Deploy VPC + EKS stacks (primary deployment for application)"
+            echo "  deploy-ec2          - Deploy EC2 stack (optional - application runs on EKS)"
             echo "  delete <stack-name> - Delete a specific stack"
             echo "  disable-protection  - Disable termination protection for all project stacks"
             echo "  list                - List all stacks with termination protection status"
+            echo ""
+            echo "Note: This application is deployed on EKS. EC2 deployment is optional."
             exit 1
             ;;
     esac

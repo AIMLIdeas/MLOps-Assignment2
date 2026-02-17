@@ -4,12 +4,14 @@ This directory contains CloudFormation templates and deployment scripts for the 
 
 ## 🚀 Quick Start
 
-### Deploy All Stacks
+### Deploy EKS (Primary Deployment)
+
+**The application runs on EKS** - this is the primary deployment target:
 
 ```bash
 cd deployment/cloudformation
 chmod +x deploy-stacks.sh manage-stacks.sh
-./deploy-stacks.sh deploy
+./deploy-stacks.sh deploy  # Deploys VPC + EKS
 ```
 
 ### Deploy Individual Stacks
@@ -18,11 +20,11 @@ chmod +x deploy-stacks.sh manage-stacks.sh
 # Deploy VPC only
 ./deploy-stacks.sh deploy-vpc
 
-# Deploy EC2 only
-./deploy-stacks.sh deploy-ec2
-
-# Deploy EKS only
+# Deploy EKS only (requires VPC)
 ./deploy-stacks.sh deploy-eks
+
+# Deploy EC2 (optional - for testing)
+./deploy-stacks.sh deploy-ec2
 ```
 
 ## 📁 Files Overview

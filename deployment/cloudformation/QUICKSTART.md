@@ -2,10 +2,15 @@
 
 ## 🚀 Quick Commands
 
-### Deploy Everything
+### Deploy EKS (Primary - Application runs here)
 ```bash
 cd deployment/cloudformation
-./deploy-stacks.sh deploy
+./deploy-stacks.sh deploy  # Deploys VPC + EKS
+```
+
+### Deploy EC2 (Optional)
+```bash
+./deploy-stacks.sh deploy-ec2  # Optional EC2 instance
 ```
 
 ### Check Stack Status
@@ -21,11 +26,13 @@ cd deployment/cloudformation
 
 ## 📦 Available Stacks
 
-| Stack Name | Template | Purpose |
-|------------|----------|---------|
-| `mlops-mnist-vpc-production` | `vpc-stack.yaml` | Network infrastructure |
-| `mlops-mnist-ec2-production` | `ec2-stack.yaml` | EC2 instance with Docker |
-| `mlops-mnist-eks-production` | `eks-stack.yaml` | Kubernetes cluster |
+| Stack Name | Template | Purpose | Status |
+|------------|----------|---------|--------|
+| `mlops-mnist-vpc-production` | `vpc-stack.yaml` | Network infrastructure | Required |
+| `mlops-mnist-eks-production` | `eks-stack.yaml` | Kubernetes cluster | **Primary** |
+| `mlops-mnist-ec2-production` | `ec2-stack.yaml` | EC2 instance with Docker | Optional |
+
+> **Note:** Application is deployed on EKS. EC2 is optional for testing only.
 
 ## ✅ Termination Protection Status
 
@@ -79,13 +86,15 @@ Expected output:
 
 ### Available Actions
 
-- `deploy-all` - Deploy all infrastructure
+- `deploy-eks` - **Default** - Deploy VPC + EKS (application platform)
+- `deploy-all` - Deploy all infrastructure including EC2
 - `deploy-vpc` - VPC only
-- `deploy-ec2` - EC2 only  
-- `deploy-eks` - EKS only
+- `deploy-ec2` - EC2 only (optional)  
 - `delete-stack` - Delete specific stack
 - `disable-protection` - Disable protection for all
 - `list-stacks` - List all stacks
+
+> **Primary deployment:** Use `deploy-eks` as the application runs on EKS
 
 ## 📋 Prerequisites Checklist
 
@@ -99,10 +108,27 @@ Expected output:
 
 ## 🎯 Common Use Cases
 
-### Development: Deploy and Test EC2
+### Production: Deploy EKS Application
 
 ```bash
-# Deploy EC2 stack only
+# Deploy VPC + EKS (application runs here)
+./deploy-stacks.sh deploy
+
+# Verify deployment
+./manage-stacks.sh list
+
+# Configure kubectl
+aws eks update-kubeconfig --name mlops-assignment2-cluster
+
+# Check cluster
+kubectl get nodes
+kubectl get pods -n mlops
+```
+
+### Development: Testing with EC2 (Optional)
+
+```bash
+# Deploy EC2 stack only for testing
 ./deploy-stacks.sh deploy-ec2
 
 # Get service URL

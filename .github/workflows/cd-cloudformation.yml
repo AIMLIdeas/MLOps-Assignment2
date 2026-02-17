@@ -19,14 +19,14 @@ on:
         required: true
         type: choice
         options:
+          - deploy-eks
           - deploy-all
           - deploy-vpc
           - deploy-ec2
-          - deploy-eks
           - delete-stack
           - disable-protection
           - list-stacks
-        default: 'deploy-all'
+        default: 'deploy-eks'
       stack_name:
         description: 'Stack name (for delete action)'
         required: false
@@ -131,7 +131,7 @@ jobs:
           echo "ACTION=${{ inputs.action || 'deploy-all' }}" >> $GITHUB_ENV
 
       - name: Deploy VPC Stack
-        if: env.ACTION == 'deploy-all' || env.ACTION == 'deploy-vpc'
+        if: env.ACTION == 'deploy-all' || env.ACTION == 'deploy-vpc' || env.ACTION == 'deploy-eks'
         run: |
           echo "## Deploying VPC Stack" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -172,7 +172,9 @@ jobs:
         if: env.ACTION == 'deploy-all' || env.ACTION == 'deploy-ec2'
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Deploying EC2 Stack" >> $GITHUB_STEP_SUMMARY
+          echo "## Deploying EC2 Stack (Optional)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️ **Note:** Application runs on EKS. EC2 is optional for testing." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           STACK_NAME="${PROJECT_NAME}-ec2-${ENVIRONMENT}"
@@ -224,9 +226,10 @@ jobs:
         if: env.ACTION == 'deploy-all' || env.ACTION == 'deploy-eks'
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Deploying EKS Stack" >> $GITHUB_STEP_SUMMARY
+          echo "## Deploying EKS Stack (Primary Application Platform)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "⚠️ **Note:** EKS cluster creation takes 15-20 minutes" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Application deployment target:** EKS (not EC2)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           STACK_NAME="${PROJECT_NAME}-eks-${ENVIRONMENT}"
