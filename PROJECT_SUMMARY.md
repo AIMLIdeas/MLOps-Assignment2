@@ -1,4 +1,11 @@
 # Project Summary - MLOps Assignment 2
+# Group No 39
+Team Members
+Akilan K. S. L., 2024AB05003
+Nagendra Prasad Reddy K. V. S., 2024aa05960
+Piramanayagam P., 2024AB05015
+Prathyusha Devi K., 2024aa05182
+Sai Venkata Naga Sesh Kumar Ghanta., 2024aa05989
 
 ## Overview
 Complete end-to-end MLOps pipeline for Cat/Dogs image classification, covering all 5 milestones from model development to production deployment and monitoring.
