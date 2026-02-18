@@ -76,7 +76,7 @@ Assignment 2/
 
 ## Key Features
 
-- **Model**: Simple CNN, ~98% accuracy on MNIST
+- **Model**: Simple CNN, ~60% accuracy on Cats-Dogs
 - **API**: FastAPI with /health and /predict endpoints
 - **Container**: Multi-stage Docker build, non-root user
 - **CI/CD**: Build locally → CI tests container → CD auto-deploys
@@ -124,7 +124,7 @@ docker-compose up
 ### Kubernetes
 ```bash
 kubectl apply -f deployment/kubernetes/
-kubectl port-forward service/mnist-service 8000:80
+kubectl port-forward service/cats-dogs-service 8000:80
 ```
 
 ## Monitoring
@@ -177,7 +177,7 @@ For issues:
 
 **Status**: ✅ All 5 milestones completed and tested
 
-**Model**: MNIST CNN with 98% accuracy
+**Model**: Cats-Dogs CNN with 60% accuracy
 
 **Deployment**: Docker + Kubernetes ready
 

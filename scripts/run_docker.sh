@@ -3,11 +3,11 @@
 
 set -e
 
-echo "Building MNIST Classifier Docker Image..."
+echo "Building Cats-Dogs Classifier Docker Image..."
 echo "=========================================="
 
 # Build the Docker image
-docker build -t mnist-classifier:latest .
+docker build -t cats-dogs-classifier:latest .
 
 echo ""
 echo "✓ Docker image built successfully!"
@@ -17,10 +17,10 @@ echo "===================="
 
 # Run the container
 docker run -d \
-    --name mnist-api \
+    --name cats-dogs-api \
     -p 8000:8000 \
     -v $(pwd)/logs:/app/logs \
-    mnist-classifier:latest
+    cats-dogs-classifier:latest
 
 echo ""
 echo "✓ Container started successfully!"
@@ -39,16 +39,16 @@ for i in {1..10}; do
         echo "API documentation: http://localhost:8000/docs"
         echo ""
         echo "To view logs:"
-        echo "  docker logs -f mnist-api"
+        echo "  docker logs -f cats-dogs-api"
         echo ""
         echo "To stop the container:"
-        echo "  docker stop mnist-api"
-        echo "  docker rm mnist-api"
+        echo "  docker stop cats-dogs-api"
+        echo "  docker rm cats-dogs-api"
         exit 0
     fi
     sleep 2
 done
 
 echo "✗ API failed to start"
-echo "Check logs with: docker logs mnist-api"
+echo "Check logs with: docker logs cats-dogs-api"
 exit 1

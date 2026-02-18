@@ -249,7 +249,7 @@ Fail the pipeline if smoke tests fail
   - Fails pipeline if tests fail
 
   - Automatic rollback on failure
-  - Command: `kubectl rollout undo deployment/mnist-deployment`
+  - Command: `kubectl rollout undo deployment/cats-dogs-deployment`
 
 **Evidence:**
 
@@ -366,8 +366,8 @@ curl http://localhost:8000/health
 curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d '{...}'
 
 # Docker
-docker build -t mnist-classifier:latest .
-docker run -p 8000:8000 mnist-classifier:latest
+docker build -t cats-dogs-classifier:latest .
+docker run -p 8000:8000 cats-dogs-classifier:latest
 ```
 
 ### M3 Verification

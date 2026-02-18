@@ -9,7 +9,8 @@ from torchvision import datasets, transforms
 
 def generate_sample_requests(num_samples=5, output_file='sample_requests.json'):
     """
-    Generate sample prediction requests from MNIST test data
+    Generate sample prediction requests from test data
+    (Note: Uses MNIST for demo purposes - actual API uses Cats-Dogs model)
     
     Args:
         num_samples: Number of sample requests to generate
@@ -17,7 +18,7 @@ def generate_sample_requests(num_samples=5, output_file='sample_requests.json'):
     """
     print(f"Generating {num_samples} sample prediction requests...")
     
-    # Load MNIST test data
+    # Load test data (MNIST used for demo purposes)
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))

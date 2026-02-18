@@ -130,10 +130,10 @@ curl -X POST http://localhost:8000/predict \
 
 ```bash
 # Build image
-docker build -t mnist-classifier:latest .
+docker build -t cats-dogs-classifier:latest .
 
 # Run container
-docker run -p 8000:8000 mnist-classifier:latest
+docker run -p 8000:8000 cats-dogs-classifier:latest
 ```
 
 ### 6. Deploy with Docker Compose
@@ -153,7 +153,7 @@ kubectl get pods
 kubectl get svc
 
 # Port forward
-kubectl port-forward service/mnist-service 8000:80
+kubectl port-forward service/cats-dogs-service 8000:80
 ```
 
 ### 8. Run Tests
@@ -242,7 +242,7 @@ View logs:
 docker logs <container-id>
 
 # Kubernetes
-kubectl logs -f deployment/mnist-deployment
+kubectl logs -f deployment/cats-dogs-deployment
 ```
 
 ## Model Versioning
@@ -254,7 +254,7 @@ Models are versioned using:
 
 ## Performance
 
-- **Model Accuracy**: ~98% on MNIST test set
+- **Model Accuracy**: ~60% on Cats-Dogs test set
 - **Inference Latency**: ~10-20ms per prediction
 - **API Response Time**: ~50-100ms
 

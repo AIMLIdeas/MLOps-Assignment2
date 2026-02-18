@@ -1,5 +1,5 @@
 #!/bin/bash
-# Smoke Tests for MNIST Classifier API
+# Smoke Tests for Cats-Dogs Classifier API
 # Tests basic functionality after deployment
 
 set -e  # Exit on error
@@ -17,7 +17,7 @@ MAX_RETRIES=5
 RETRY_DELAY=2
 
 echo "========================================="
-echo "MNIST Classifier API - Smoke Tests"
+echo "Cats-Dogs Classifier API - Smoke Tests"
 echo "========================================="
 echo "API URL: $API_URL"
 echo ""
