@@ -3,28 +3,36 @@
 This checklist maps the project deliverables to the assignment requirements.
 
 ## M1: Model Development & Experiment Tracking (10M)
+Objective: Build a baseline model, track experiments, and version all artifacts.
+Tasks:
+1. Data & Code Versioning
+Use Git for source code versioning (project structure, scripts, and notebooks).
+Use DVC (or Git‐LFS) for dataset versioning and to track pre-processed data.
+2. Model Building
+Implement at least one baseline model (e.g., simple CNN or logistic regression on flattened
+pixels).
+Save the trained model in a standard serialized format (e.g., .pkl, .pt, .h5).
+3. Experiment Tracking
+Use an open-source tracker like MLflow/Neptune to log runs, parameters, metrics, and
+artifacts (confusion matrix, loss curves)
 
 ### 1. Data & Code Versioning
 - [x] **Git for source code versioning**
-  - Location: `.git/` directory
+  - Location: `.git/` - https://github.com/AIMLIdeas/MLOps-Assignment2
   - All source code, scripts, notebooks tracked
   - `.gitignore` configured to exclude large files
 
   - Location: `.dvc/` directory, `data/raw.dvc`
-  - Command to track data: `dvc add data/raw`
   - Cat/Dogs dataset versioned with DVC
   - `.dvcignore` configured
 
 ### 2. Model Building
   - Location: `src/model.py`
-  - Architecture: Simple CNN (MNISTBasicCNN)
   - Architecture: Simple CNN (CatDogsCNN)
-  - Alternative: Can use logistic regression on flattened pixels
   - Training script with data loading and training loop
 
   - Location: `models/cat_dogs_cnn_model.pt`
   - Format: PyTorch `.pt` format
-  - Can also save as `.pkl` or `.h5`
 
 ### 3. Experiment Tracking
   - Location: `src/model.py` (MLflow tracking code)
@@ -38,20 +46,45 @@ This checklist maps the project deliverables to the assignment requirements.
 
 
 ## M2: Model Packaging & Containerization (10M)
-
+Objective: Package the trained model into a reproducible, containerized service.
+Tasks:
+1. Inference Service
+Wrap the trained model with a simple REST API using FastAPI/Flask.
+Implement at least two endpoints: health check and prediction (accepts input and returns class
+probabilities/label).
+2. Environment Specification
+Define dependencies using requirements.txt
+Ensure version pinning for all key ML libraries for reproducibility.
+3. Containerization
+Create a Dockerfile to containerize the inference service.
+Build and run the image locally and verify predictions via curl/Postman
 ### 1. Inference Service
   - Location: `api/main.py`
   - Framework: FastAPI
-  - Can run with: `uvicorn api.main:app --reload`
 
   - Endpoint: `GET /health`
   - Returns: API status, model loaded state, timestamp
   - Test: `curl http://localhost:8000/health`
+  - AWS URL: http://a464126408ba744778040079b625c9b4-1b7df649871d3e3b.elb.us-east-1.amazonaws.com/health
 
   - Endpoint: `POST /predict`
  - Input: RGB image file (128x128)
  - Output: prediction (cat/dog), probabilities, confidence
   - Test: `curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d @sample_requests.json`
+  - AWS URL: http://a464126408ba744778040079b625c9b4-1b7df649871d3e3b.elb.us-east-1.amazonaws.com/predict
+
+- [x] **POST /predict-image endpoint**
+  - Endpoint: `POST /predict-image`
+  - Input: Base64 encoded image
+  - Output: prediction (cat/dog), probabilities, confidence
+  - Test: `curl -X POST http://localhost:8000/predict-image -H "Content-Type: application/json" -d '{"image":"base64_string"}'`
+  - AWS URL: http://a464126408ba744778040079b625c9b4-1b7df649871d3e3b.elb.us-east-1.amazonaws.com/predict-image
+
+- [x] **GET /model-info endpoint**
+  - Endpoint: `GET /model-info`
+  - Returns: Model architecture, parameters, training details
+  - Test: `curl http://localhost:8000/model-info`
+  - AWS URL: http://a464126408ba744778040079b625c9b4-1b7df649871d3e3b.elb.us-east-1.amazonaws.com/model-info
 
 ### 2. Environment Specification
   - Location: `requirements.txt`
@@ -66,7 +99,6 @@ This checklist maps the project deliverables to the assignment requirements.
 
  - Build: `docker build -t cat-dogs-classifier:latest .`
  - Run: `docker run -p 8000:8000 cat-dogs-classifier:latest`
-  - Or use script: `./scripts/run_docker.sh`
 
   - Test with curl: See smoke test script
   - Automated tests: `./scripts/smoke_test.sh`
@@ -75,7 +107,17 @@ This checklist maps the project deliverables to the assignment requirements.
 
 
 ## M3: CI Pipeline for Build, Test & Image Creation (10M)
+Objective: Implement Continuous Integration to automatically test, package, and build container
+images
+Tasks:
+1. Automated Testing : Write unit tests for at least one data pre-processing function and
+One model utility/inference function. Ensure tests run via pytest or similar.
 
+2. CI Setup (Choose one: GitHub Actions / GitLab CI / Jenkins / Tekton)
+Define a pipeline that on every push/merge request, checks out the repository, installs
+dependencies, runs unit tests, and builds the Docker image
+3. Artifact Publishing: Configure the pipeline to push the Docker image to a container registry
+(e.g., Docker Hub, GitHub Container Registry, local registry).
 ### 1. Automated Testing
   - Location: `tests/test_preprocessing.py`
   - Tests: `preprocess_image`, `flatten_image`, `normalize_pixel_values`
@@ -89,10 +131,30 @@ This checklist maps the project deliverables to the assignment requirements.
   - Configuration: `pytest.ini`
   - Coverage: `pytest tests/ --cov=src --cov=api`
 
-### 2. CI Setup (GitHub Actions)
+### 2. Build & Image Creation
+- [x] **Docker Build Workflow**
+  - Location: `.github/workflows/build-docker.yml`
+  - Trigger: Automatic on push to main when code/dependencies change
+  - Paths monitored: `Dockerfile`, `requirements.txt`, `src/**`, `api/**`, `models/**`
+  
+  **Build Process:**
+  - [x] Multi-stage Docker build
+  - [x] Platform: linux/amd64 (for AWS EKS compatibility)
+  - [x] Tags images with git SHA and 'latest'
+  - [x] Pushes to GitHub Container Registry (GHCR)
+  - [x] Login to GHCR using GitHub token
+  - [x] Build completes before CI testing begins
+  
+  **Manual Build Option:**
+  - Script: `scripts/build_and_push.sh`
+  - Builds locally with git SHA tag
+  - Requires: `GITHUB_TOKEN` environment variable
+  - Use case: Test builds before pushing code
+
+### 3. CI Setup (GitHub Actions)
   - Location: `.github/workflows/ci.yml`
   - Trigger: On push to main/develop, on pull requests
-  - Prerequisites: Docker image built locally and pushed to GHCR
+  - Prerequisites: Docker image built in a seperate job and pushed to GHCR
   
   **Test Job (tests pre-built Docker container):**
   - [x] Set image tag (uses git SHA)
@@ -108,15 +170,15 @@ This checklist maps the project deliverables to the assignment requirements.
   - [x] Pushes to GHCR: `ghcr.io/.../cats-dogs-classifier:$SHA`
   - [x] Requires GITHUB_TOKEN environment variable
   
-  **Key Advantages:**
+  **Comments:**
   - Tests the actual Docker container (not separate code)
   - Simpler CI - just pull and test
   - Developers can test exact image locally before pushing
   - CI validates the deployable artifact
 
-### 3. Artifact Publishing
+### 4. Artifact Publishing
   - Registry: GitHub Container Registry (ghcr.io)
-  - Image: `ghcr.io/YOUR_USERNAME/mnist-classifier:latest`
+  - Image: `ghcr.io/aimlideas/mlops-assignment2/cats-dogs-classifier`
   - Tags: branch name, git SHA, latest
   - Automatic push on main branch updates
 
@@ -124,8 +186,25 @@ This checklist maps the project deliverables to the assignment requirements.
 
 
 ## M4: CD Pipeline & Deployment (10M)
+Objective: Implement Continuous Deployment of the containerized model to a target environment.
+Tasks:
+1. Deployment Target
+Choose one: local Kubernetes cluster (kind/minikube/microk8s), Docker Compose, or a
+simple VM server.
+Define infrastructure manifests: For Kubernetes: Deployment + Service YAML.
+For Docker Compose: docker-compose.yml.
+
+2. CD / GitOps Flow
+Extend CI or use a CD tool (Argo CD, Jenkins, GitHub Actions environment) to:
+- Pull the new image from the registry.
+- Deploy/update the running service automatically on main branch changes.
+3. Smoke Tests / Health Check
+Implement a simple post-deploy smoke test (e.g., script that calls the health endpoint and one
+prediction call).
+Fail the pipeline if smoke tests fail
 
 ### 1. Deployment Target
+  - VPC, EKS clusters were created onetime and configured using CloudFormation automation scripts
   - Location: `deployment/kubernetes/`
   - Files:
     - `deployment.yaml` - Application deployment
@@ -150,7 +229,7 @@ This checklist maps the project deliverables to the assignment requirements.
   - [x] Wait for rollout status
   - [x] Run smoke tests and health checks
 
-  **Trigger Options:**
+  **Triggers:**
   - Automatic: When CI workflow completes successfully
   - Manual: workflow_dispatch with optional image tag input
   
@@ -176,6 +255,14 @@ This checklist maps the project deliverables to the assignment requirements.
 
 
 ## M5: Monitoring, Logs & Final Submission (10M)
+Objective: Monitor the deployed model and submit a consolidated package of all artifacts.
+Tasks:
+1. Basic Monitoring & Logging
+Enable request/response logging in the inference service (excluding sensitive data).
+Track basic metrics such as request count and latency (via logs, Prometheus, or simple in-app
+counters).
+2. Model Performance Tracking (Post‐Deployment)
+Collect a small batch of real or simulated requests and true labels.
 
 ### 1. Basic Monitoring & Logging
   - Location: `api/main.py` (middleware)
@@ -192,7 +279,14 @@ This checklist maps the project deliverables to the assignment requirements.
     - `api_requests_total` - Request counter
     - `api_request_latency_seconds` - Latency histogram
     - `predictions_total` - Predictions by class
-  - Dashboard: Available at `/stats` endpoint
+  - Test: `curl http://localhost:8000/metrics`
+  - AWS URL: http://a464126408ba744778040079b625c9b4-1b7df649871d3e3b.elb.us-east-1.amazonaws.com/metrics
+
+- [x] **Dashboard /stats endpoint**
+  - Endpoint: `GET /stats`
+  - Returns: Total predictions, average confidence, average inference time
+  - Test: `curl http://localhost:8000/stats`
+  - AWS URL: http://a464126408ba744778040079b625c9b4-1b7df649871d3e3b.elb.us-east-1.amazonaws.com/stats
 
 ### 2. Model Performance Tracking (Post-Deployment)
   - Location: `scripts/evaluate_performance.py`
@@ -215,15 +309,24 @@ This checklist maps the project deliverables to the assignment requirements.
 ## Additional Deliverables
 
 ### Documentation
+- [x] **README.md**
   - Project overview
   - Quick start guide
   - API documentation
   - All milestones covered
 
+- [x] **SETUP_GUIDE.md**
   - Step-by-step setup instructions
   - Verification checklist
   - Troubleshooting guide
 
+- [x] **ASSIGNMENT_CHECKLIST.md** (this file)
+  - Maps requirements to implementation
+  - Evidence for each milestone (M1-M5)
+  - Verification commands for each deliverable
+  - Submission package details
+
+- [x] **Deployment Documentation**
   - Location: `deployment/kubernetes/README.md`
   - Deployment instructions
   - Scaling and monitoring guides
