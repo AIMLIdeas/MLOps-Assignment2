@@ -1,11 +1,16 @@
 # Group No 39
 
-Team Members
-Akilan K. S. L., 2024AB05003
-Nagendra Prasad Reddy K. V. S., 2024aa05960
-Piramanayagam P., 2024AB05015
-Prathyusha Devi K., 2024aa05182
-Sai Venkata Naga Sesh Kumar Ghanta., 2024aa05989
+## Team Members
+
+| Name | Roll Number |
+|------|-------------|
+| Akilan K. S. L. | 2024AB05003 |
+| Nagendra Prasad Reddy K. V. S. | 2024aa05960 |
+| Piramanayagam P. | 2024AB05015 |
+| Prathyusha Devi K. | 2024aa05182 |
+| Sai Venkata Naga Sesh Kumar Ghanta | 2024aa05989 |
+
+---
 
 # MLOps Pipeline Architecture
 
