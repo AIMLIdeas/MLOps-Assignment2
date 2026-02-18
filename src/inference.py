@@ -33,10 +33,40 @@ class ModelInference:
         self.model.eval()
         print(f"Model loaded from {self.model_path}")
 
-    def predict(self, image_path):
+    def predict(self, image_input):
+        """
+        Make prediction on image
+        
+        Args:
+            image_input: Either a file path (str) or numpy array (already preprocessed)
+        
+        Returns:
+            Dictionary with prediction, probabilities, and confidence
+        """
         if self.model is None:
             raise RuntimeError("Model not loaded. Call load_model() first.")
-        image_tensor = preprocess_image(image_path).to(self.device)
+        
+        # Handle both file paths and numpy arrays
+        if isinstance(image_input, str):
+            # File path - use preprocess_image function
+            image_tensor = preprocess_image(image_input).to(self.device)
+        elif isinstance(image_input, np.ndarray):
+            # Numpy array - convert to tensor
+            # Expected shape: (128, 128, 3) with values in [0, 1]
+            if image_input.ndim == 3 and image_input.shape[2] == 3:
+                # Convert HWC to CHW format
+                image_tensor = torch.from_numpy(image_input).permute(2, 0, 1).float()
+                # Normalize using ImageNet stats
+                mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+                std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+                image_tensor = (image_tensor - mean) / std
+                # Add batch dimension
+                image_tensor = image_tensor.unsqueeze(0).to(self.device)
+            else:
+                raise ValueError(f"Invalid numpy array shape: {image_input.shape}. Expected (128, 128, 3)")
+        else:
+            raise TypeError(f"image_input must be str or np.ndarray, got {type(image_input)}")
+        
         with torch.no_grad():
             output = self.model(image_tensor)
             probabilities = torch.nn.functional.softmax(output, dim=1)
