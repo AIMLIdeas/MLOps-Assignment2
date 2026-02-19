@@ -76,3 +76,7 @@ logs/
 
 # EKS resources
 /tmp/eks-resources-*.txt
+
+# Submission packages
+*Submission*.zip
+submission_temp_*/
