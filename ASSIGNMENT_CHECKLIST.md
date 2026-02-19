@@ -14,8 +14,6 @@
 
 ---
 
-
-
 This checklist maps the project deliverables to the assignment requirements.
 
 ## M1: Model Development & Experiment Tracking (10M)
@@ -57,8 +55,6 @@ artifacts (confusion matrix, loss curves)
   - Metrics: train/test loss, accuracy
   - Artifacts: confusion matrix, loss curves, classification report
   - View with: `mlflow ui`
-
-**Evidence:**
 
 
 ## M2: Model Packaging & Containerization (10M)
@@ -118,8 +114,6 @@ Build and run the image locally and verify predictions via curl/Postman
 
   - Test with curl: See smoke test script
   - Automated tests: `./scripts/smoke_test.sh`
-
-**Evidence:**
 
 
 ## M3: CI Pipeline for Build, Test & Image Creation (10M)
@@ -198,8 +192,6 @@ dependencies, runs unit tests, and builds the Docker image
   - Tags: branch name, git SHA, latest
   - Automatic push on main branch updates
 
-**Evidence:**
-
 
 ## M4: CD Pipeline & Deployment (10M)
 Objective: Implement Continuous Deployment of the containerized model to a target environment.
@@ -232,7 +224,7 @@ Fail the pipeline if smoke tests fail
   - Services: API + Prometheus
   - Quick start: `docker-compose up`
 
-### 2. CD / GitOps Flow
+### 2. CD (GitHub Actions)
   - Location: `.github/workflows/cd.yml`
   - Trigger: Automatic on successful CI completion (workflow_run event)
   - Prerequisites: Docker image tested successfully by CI
@@ -266,8 +258,6 @@ Fail the pipeline if smoke tests fail
 
   - Automatic rollback on failure
   - Command: `kubectl rollout undo deployment/cats-dogs-deployment`
-
-**Evidence:**
 
 
 ## M5: Monitoring, Logs & Final Submission (10M)
@@ -318,8 +308,6 @@ Collect a small batch of real or simulated requests and true labels.
   - Format: JSON with full metrics
   - History: `performance_history.jsonl`
   - Command: `python scripts/evaluate_performance.py`
-
-**Evidence:**
 
 
 ## Additional Deliverables
@@ -428,7 +416,6 @@ python scripts/evaluate_performance.py
 # View stats
 curl http://localhost:8000/stats
 ```
-
 
 ## Submission Package
 
