@@ -4,6 +4,9 @@
 scripts/create-eks-cluster-local.sh
 scripts/create-eks-awscli.sh
 
+# Shell scripts (all .sh files)
+*.sh
+
 # Python
 __pycache__/
 *.py[cod]

@@ -247,17 +247,20 @@ Fail the pipeline if smoke tests fail
   - Location: `scripts/smoke_test.sh`
   - Tests:
     - Health endpoint
-    - Prediction endpoint
-    - Invalid input handling
+    - Root endpoint
+    - Model info endpoint
     - Metrics endpoint
     - Response validation
 
-  - Runs automatically in CD pipeline
-  - Can run manually: `./scripts/smoke_test.sh`
+  - **Runs automatically in CD pipeline after deployment ✅**
+  - Validates deployed service against LoadBalancer URL
+  - Tests run with `API_URL` environment variable set to service endpoint
+  - Can run manually: `API_URL=http://your-service-url ./scripts/smoke_test.sh`
   - Fails pipeline if tests fail
 
-  - Automatic rollback on failure
-  - Command: `kubectl rollout undo deployment/cats-dogs-deployment`
+  - **Automatic rollback on failure ✅**
+  - Command: `kubectl rollout undo deployment/cat-dogs-deployment`
+  - Rollback triggers automatically if smoke tests fail
 
 
 ## M5: Monitoring, Logs & Final Submission (10M)

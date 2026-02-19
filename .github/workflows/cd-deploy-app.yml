@@ -243,6 +243,49 @@ jobs:
             echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
             echo "kubectl get svc cat-dogs-service -n mlops" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Run Smoke Tests
+        if: steps.get-url.outputs.service_url != ''
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Smoke Tests" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          SERVICE_URL="${{ steps.get-url.outputs.service_url }}"
+          echo "🧪 Running smoke tests against: $SERVICE_URL"
+          echo "Testing endpoint: $SERVICE_URL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Make smoke test script executable
+          chmod +x scripts/smoke_test.sh
+          
+          # Run smoke tests with the service URL
+          if API_URL="$SERVICE_URL" ./scripts/smoke_test.sh; then
+            echo "### ✅ All Smoke Tests Passed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- Health check: ✓" >> $GITHUB_STEP_SUMMARY
+            echo "- Root endpoint: ✓" >> $GITHUB_STEP_SUMMARY
+            echo "- Model info: ✓" >> $GITHUB_STEP_SUMMARY
+            echo "- Metrics endpoint: ✓" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 Deployment verified successfully!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Smoke Tests Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ Deployment completed but smoke tests failed." >> $GITHUB_STEP_SUMMARY
+            echo "Check the logs above for details." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**The deployment will be rolled back.**" >> $GITHUB_STEP_SUMMARY
+            
+            # Rollback the deployment
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## Rolling Back Deployment" >> $GITHUB_STEP_SUMMARY
+            kubectl rollout undo deployment/cat-dogs-deployment -n mlops
+            echo "✓ Rollback initiated" >> $GITHUB_STEP_SUMMARY
+            
+            exit 1
           fi
 
       - name: Display Deployment Summary
