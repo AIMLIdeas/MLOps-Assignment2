@@ -1,0 +1,404 @@
+================================================
+MLOps Assignment 2 - Submission Package Index
+================================================
+
+Group:   39
+Course:  MLOps (Machine Learning Operations)
+Date:    February 2026
+
+Team Members:
+  - Akilan K. S. L.                        (2024AB05003)
+  - Nagendra Prasad Reddy K. V. S.         (2024AA05960)
+  - Piramanayagam P.                       (2024AB05015)
+  - Prathyusha Devi K.                     (2024AA05182)
+  - Sai Venkata Naga Sesh Kumar Ghanta     (2024AA05989)
+
+GitHub Repository: https://github.com/AIMLIdeas/MLOps-Assignment2
+Container Image:   ghcr.io/aimlideas/mlops-assignment2/cats-dogs-classifier
+
+Link for Video: https://drive.google.com/file/d/1HyUBHExPjLDkfHsuzWvw0sH5dVyzbSaW/view?usp=sharing
+
+
+================================================
+PROJECT OVERVIEW
+================================================
+
+This project implements a complete MLOps pipeline for a Cat vs Dog image
+classifier using a custom CNN model. The pipeline covers the full lifecycle:
+from data versioning and model training through containerization, CI/CD
+automation, Kubernetes deployment on AWS EKS, and production monitoring
+with Prometheus and Grafana.
+
+Key Technologies:
+  - Model:        PyTorch CNN (custom architecture)
+  - API:          FastAPI (REST inference service)
+  - Tracking:     MLflow (experiment & model management)
+  - Versioning:   DVC (data version control)
+  - Container:    Docker (multi-platform image)
+  - Registry:     GitHub Container Registry (GHCR)
+  - CI/CD:        GitHub Actions
+  - Orchestration: Kubernetes on AWS EKS
+  - Monitoring:   Prometheus + Grafana
+  - Testing:      pytest
+
+Live Deployment (AWS EKS - us-east-1):
+  API Endpoint:  http://a464126408ba744778040079b625c9b4-1b7df649871d3e3b.elb.us-east-1.amazonaws.com
+  Prometheus:    http://a513b9214446b450f8a77c2e43a6ee1d-1115903209.us-east-1.elb.amazonaws.com:9090
+  Grafana:       http://a63573646b8fc4fcfb12d50d9e08d4c4-123665933.us-east-1.elb.amazonaws.com:3000
+
+================================================
+DIRECTORY & FILE DESCRIPTIONS
+================================================
+
+ROOT FILES
+----------
+README.md
+    Project overview, architecture summary, quick-start guide, and links
+    to all documentation. Start here for a complete picture of the project.
+
+Dockerfile
+    Multi-stage Docker build for the FastAPI inference service. Builds a
+    lean production image exposing port 8000 with the trained model baked in.
+
+requirements.txt
+    Pinned Python dependencies for the full project (PyTorch, FastAPI,
+    MLflow, DVC, prometheus-client, pytest, etc.).
+
+pytest.ini
+    pytest configuration: test discovery paths, markers, and options used
+    by both local runs and the CI pipeline.
+
+SETUP_GUIDE.md
+    Step-by-step instructions for setting up the local development
+    environment, running tests, and building the Docker image.
+
+ARCHITECTURE.md
+    System architecture diagrams and explanations covering the model,
+    API, CI/CD flow, Kubernetes topology, and monitoring stack.
+
+ASSIGNMENT_CHECKLIST.md
+    Mapping of every assignment milestone requirement (M1–M5) to the
+    specific files, commits, and evidence that satisfy each criterion.
+
+PROJECT_SUMMARY.md
+    Executive-level summary of the project: what was built, key design
+    decisions, and results achieved.
+
+SUBMISSION_INFO.txt
+    Auto-generated file created at package build time containing group
+    details, deployment URLs, and a summary of what's included.
+
+SUBMISSION_INDEX.txt  (this file)
+    Human-readable index with descriptions of every directory and file
+    in this submission package.
+
+.gitignore
+    Git ignore rules covering Python caches, virtual environments,
+    model binaries, DVC cache, and IDE artefacts.
+
+------------------------------------------------------------------
+
+src/  — Core Model Library
+------------------------------------------------------------------
+The heart of the ML codebase. Contains pure Python modules with no
+framework-specific dependencies so they can be imported by both the
+API and training scripts independently.
+
+  src/model.py
+      Defines the CatDogCNN PyTorch model architecture: convolutional
+      blocks, batch normalisation, dropout, and the final classification
+      head. Also includes model loading/saving helpers.
+
+  src/data_preprocessing.py
+      Image loading, resizing, normalisation, and augmentation transforms
+      applied consistently during training and inference. Wraps torchvision
+      transforms into reusable pipelines.
+
+  src/inference.py
+      Encapsulates the end-to-end prediction pipeline: load model from
+      disk, preprocess an input image, run forward pass, and return a
+      labelled probability score. Used directly by the API.
+
+------------------------------------------------------------------
+
+api/  — FastAPI Inference Service
+------------------------------------------------------------------
+Production REST API that wraps the model and exposes HTTP endpoints for
+health checking and image classification.
+
+  api/main.py
+      FastAPI application with the following endpoints:
+        GET  /          → Web UI (serves static/index.html)
+        GET  /health    → Health check (returns status + model info)
+        POST /predict   → Accepts an image file, returns cat/dog label
+                          + confidence score
+        GET  /metrics   → Prometheus-format metrics scrape endpoint
+      Instruments every request with Prometheus counters and histograms
+      (api_requests_total, api_request_latency_seconds, predictions_total).
+
+  api/static/index.html
+      Simple browser-based front-end for uploading images and viewing
+      predictions interactively without needing a REST client.
+
+------------------------------------------------------------------
+
+tests/  — Automated Test Suite
+------------------------------------------------------------------
+pytest test suite run in CI on every pull request and push to main.
+
+  tests/test_api.py
+      Integration tests for all API endpoints: health check response
+      schema, predict endpoint with valid/invalid inputs, metrics
+      endpoint format, and HTTP status codes.
+
+  tests/test_inference.py
+      Unit tests for the inference pipeline: model loading, preprocessing
+      pipeline output shapes, and prediction output format/range.
+
+  tests/test_preprocessing.py
+      Unit tests for data_preprocessing transforms: correct output tensor
+      shapes, normalisation value ranges, and augmentation behaviour.
+
+------------------------------------------------------------------
+
+models/  — Trained Model Artefacts
+------------------------------------------------------------------
+
+  models/cat_dogs_cnn_model.pt
+      Trained PyTorch model weights (~32 MB). Trained on the Cats vs Dogs
+      dataset using the architecture defined in src/model.py. Loaded at
+      API startup and used for all inference requests.
+
+------------------------------------------------------------------
+
+mlruns/  — MLflow Experiment Tracking
+------------------------------------------------------------------
+MLflow tracking directory. Contains experiment metadata and run-level
+metrics, parameters, and tags (large binary artefacts excluded).
+
+  mlruns/1/   Experiment 1: baseline CNN training runs
+  mlruns/2/   Experiment 2: hyperparameter tuning runs
+
+  Each run directory contains:
+    meta.yaml     Run metadata (run ID, start time, status)
+    metrics/      Logged metrics per epoch (loss, accuracy, val_*)
+    params/       Hyperparameters used (lr, batch_size, epochs, etc.)
+    tags/         Source, git commit, and custom tags
+
+  To explore all runs:   mlflow ui   (then open http://127.0.0.1:5000)
+
+------------------------------------------------------------------
+
+github/workflows/  — CI/CD Pipeline Definitions
+------------------------------------------------------------------
+GitHub Actions workflow files that automate build, test, and deployment.
+(Note: in the live repository these live under .github/workflows/)
+
+  github/workflows/ci.yml
+      Continuous Integration pipeline. Triggered after a Docker image is
+      built and pushed. Steps:
+        1. Pull the newly built image from GHCR
+        2. Run pytest test suite inside the container
+        3. Report pass/fail status back to the PR
+
+  github/workflows/build-docker.yml
+      Docker build and publish pipeline. Triggered on every push to main.
+      Steps:
+        1. Checkout code
+        2. Build multi-platform Docker image (linux/amd64 + linux/arm64)
+        3. Push tagged image to GHCR
+        4. Trigger downstream CI workflow
+
+  github/workflows/cd-deploy-app.yml
+      Continuous Deployment pipeline. Triggered when CI passes on main.
+      Steps:
+        1. Configure AWS credentials
+        2. Update kubeconfig for EKS cluster
+        3. Apply Kubernetes manifests (rolling update)
+        4. Wait for rollout to complete
+        5. Run smoke tests against the live endpoint
+        6. Auto-rollback if smoke tests fail
+
+  github/workflows/cd-cloudformation.yml.disabled
+      Alternative CD pipeline using AWS CloudFormation stacks. Disabled
+      in favour of the direct EKS approach above.
+
+  github/workflows/cd-eksctl.yml.disabled
+      Alternative CD pipeline using eksctl for cluster management.
+      Disabled in favour of the CloudFormation-based cluster setup.
+
+------------------------------------------------------------------
+
+deployment/  — Infrastructure & Deployment Configuration
+------------------------------------------------------------------
+Everything needed to deploy the full stack to AWS.
+
+  deployment/kubernetes/
+      Kubernetes manifest files applied to the EKS cluster:
+        namespace.yaml          Creates the mlops-assignment2 namespace
+        deployment.yaml         API Deployment (3 replicas, rolling update,
+                                liveness/readiness probes)
+        service.yaml            LoadBalancer Service exposing port 80
+        hpa.yaml                HorizontalPodAutoscaler (2–10 replicas,
+                                target 70% CPU)
+        configmap.yaml          Non-sensitive runtime configuration
+        secret-ghcr.yaml        GHCR pull secret for private image
+        prometheus-deployment.yaml  Prometheus server Deployment + Service
+        grafana-deployment.yaml     Grafana Deployment + Service (port 3000)
+        eks-cluster-config.yaml     eksctl cluster config template
+
+  deployment/cloudformation/
+      AWS CloudFormation templates for infrastructure-as-code provisioning:
+        vpc-stack.yaml          VPC, subnets, IGW, route tables
+        eks-stack.yaml          EKS cluster and managed node group
+        deploy-stacks.sh        Deploy both stacks in order
+        manage-stacks.sh        Helper for stack updates and teardown
+
+  deployment/ec2/
+      Alternative single-instance deployment for cost-sensitive scenarios:
+        cloudformation-template.yaml  EC2 instance with Docker pre-installed
+        user-data.sh                  Bootstrap script (pull image, run container)
+        deploy-ec2.sh                 Wrapper deployment script
+
+  deployment/docker-compose.yml
+      Local multi-service stack for development: API + Prometheus + Grafana
+      all wired together with service discovery.
+
+  deployment/prometheus.yml
+      Prometheus scrape configuration: scrapes the API /metrics endpoint
+      every 15 seconds.
+
+  deployment/grafana-dashboard.json
+      Pre-built Grafana dashboard definition. Import into Grafana to
+      visualise request rates, latency percentiles, error rates, and
+      prediction counts.
+
+  deployment/deploy-to-aws.sh    End-to-end AWS deployment script
+  deployment/deploy-prometheus.sh  Deploy Prometheus to the EKS cluster
+  deployment/complete-deployment.sh  Orchestrates full stack deployment
+  deployment/quick-deploy.sh    Minimal fast-path deployment for demos
+  deployment/setup-credentials.sh  Configure AWS + GHCR credentials
+  deployment/verify-eks-prerequisites.sh  Pre-flight checks before deploy
+  deployment/grafana-access.sh  Print Grafana URL and default credentials
+
+  Deployment Guides:
+    AWS_DEPLOYMENT_GUIDE.md           Full AWS deployment walkthrough
+    EC2_DEPLOYMENT_GUIDE.md           EC2 single-instance deployment guide
+    DEPLOYMENT_ARCHITECTURE.md        Architecture decisions and diagram
+    CD_README.md                      CD pipeline design and workflow
+    CD_IMPROVEMENTS.md                Changelog of CD improvements
+    PROMETHEUS_AWS_INTEGRATION.md     Full Prometheus + Grafana setup guide
+    PROMETHEUS_QUICKSTART.md          5-minute Prometheus quick-start
+    QUICKSTART.md                     Fastest-path deployment summary
+
+------------------------------------------------------------------
+
+scripts/  — Utility & Operational Scripts
+------------------------------------------------------------------
+
+  scripts/train_cats_dogs_model.py
+      Full training script: loads data from data/raw/, applies transforms,
+      trains the CNN with early stopping, logs metrics/params to MLflow,
+      and saves the best checkpoint to models/.
+
+  scripts/evaluate_performance.py
+      Post-training evaluation: runs the model against a test set, computes
+      accuracy/precision/recall/F1, and logs results to MLflow.
+
+  scripts/generate_samples.py
+      Generates synthetic test images for smoke testing the API when real
+      cat/dog images are not available locally.
+
+  scripts/generate_traffic.sh
+      Sends a sustained stream of randomised predict requests to the live
+      API to populate Prometheus metrics and test autoscaling.
+
+  scripts/smoke_test.sh
+      Lightweight post-deployment health check: hits /health and /predict
+      and asserts expected HTTP status codes and response schema.
+
+  scripts/setup.sh
+      Developer environment bootstrap: creates virtual environment,
+      installs requirements, and validates the installation.
+
+  scripts/verify_setup.py
+      Verifies all imports resolve and the model can be loaded, providing
+      a quick sanity check before running full tests or deployment.
+
+------------------------------------------------------------------
+
+dvc-storage-info/  — DVC Storage Metadata
+------------------------------------------------------------------
+
+  dvc-storage-info/README.txt
+      DVC storage directory structure summary. The actual DVC remote
+      stores versioned copies of the raw training data (Cats vs Dogs
+      dataset) and model artefacts tracked with DVC.
+
+================================================
+QUICK START
+================================================
+
+1. Install dependencies:
+   pip install -r requirements.txt
+
+2. Run the API locally:
+   uvicorn api.main:app --reload
+   → Open http://127.0.0.1:8000
+
+3. Run all tests:
+   pytest tests/ -v
+
+4. View MLflow experiment results:
+   mlflow ui
+   → Open http://127.0.0.1:5000
+
+5. Build Docker image:
+   docker build -t cats-dogs-classifier .
+
+6. Run with Docker:
+   docker run -p 8000:8000 cats-dogs-classifier
+
+7. Local stack with monitoring:
+   docker-compose -f deployment/docker-compose.yml up
+
+For full deployment instructions see deployment/AWS_DEPLOYMENT_GUIDE.md
+
+================================================
+ASSIGNMENT MILESTONES COVERAGE
+================================================
+
+M1 - Model Development & Experiment Tracking
+  Files: src/model.py, src/data_preprocessing.py,
+         scripts/train_cats_dogs_model.py, mlruns/,
+         requirements.txt (mlflow, dvc)
+  Evidence: MLflow runs in mlruns/, model in models/
+
+M2 - Model Packaging & Containerization
+  Files: api/main.py, api/static/index.html,
+         Dockerfile, requirements.txt
+  Evidence: Docker image on GHCR, /health and /predict endpoints
+
+M3 - CI Pipeline
+  Files: github/workflows/ci.yml,
+         github/workflows/build-docker.yml,
+         tests/
+  Evidence: GitHub Actions runs on every push to main
+
+M4 - CD Pipeline & Kubernetes Deployment
+  Files: github/workflows/cd-deploy-app.yml,
+         deployment/kubernetes/,
+         deployment/cloudformation/
+  Evidence: Live API on AWS EKS LoadBalancer URL above
+
+M5 - Monitoring & Observability
+  Files: api/main.py (/metrics endpoint),
+         deployment/kubernetes/prometheus-deployment.yaml,
+         deployment/kubernetes/grafana-deployment.yaml,
+         deployment/prometheus.yml,
+         deployment/grafana-dashboard.json
+  Evidence: Live Prometheus and Grafana URLs above
+
+================================================
+END OF INDEX
+================================================
